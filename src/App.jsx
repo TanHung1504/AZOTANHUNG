@@ -6,22 +6,14 @@ import {
   MousePointerClick, Type, Hash, Sparkles, Trophy, Zap, BookOpen,
   ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen,
   Shuffle, ArrowBigLeft, ArrowBigRight, Send, Cloud, Link, Copy, Menu, X, Settings, Home, Lock, AlertTriangle, RefreshCcw,
-  Maximize, Minimize, ZoomIn, ZoomOut, List, ChevronUp, ChevronDown, Grid, User, Terminal, Check, Volume2, VolumeX
+  Maximize, Minimize, ZoomIn, ZoomOut, List, ChevronUp, ChevronDown, Grid, User, Terminal, Check
 } from 'lucide-react';
 
 // --- CẤU HÌNH CLOUD ---
 const API_KEY = "$2a$10$AHJSjT/g2I6oTUXYxUEXbeYKZ572uWijp/6tplAivvZ5jvIhsx9xO"; 
 const BIN_URL = "https://api.jsonbin.io/v3/b";
 
-// --- SOUND ASSETS ---
-const SOUNDS = {
-    click: "https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3",
-    success: "https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3",
-    error: "https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3",
-    finish: "https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3",
-};
-
-// --- UTILS ---
+// --- UTILS (GIỮ NGUYÊN) ---
 const formatTime = (seconds) => {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
@@ -45,7 +37,7 @@ const DEMO_EXAM = [
 ];
 
 export default function App() {
-  // --- STATE ---
+  // --- STATE (GIỮ NGUYÊN 100%) ---
   const [screen, setScreen] = useState('upload'); 
   const [isPracticeMode, setIsPracticeMode] = useState(false);
   const [questions, setQuestions] = useState([]);
@@ -63,19 +55,14 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [shareAsPractice, setShareAsPractice] = useState(false); 
   const [isGuestMode, setIsGuestMode] = useState(false); 
+  
+  // State UI mới
   const [showQuestionGrid, setShowQuestionGrid] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
 
   const timerRef = useRef(null);
   const scrollRef = useRef(null);
-  
-  const playSound = (type) => {
-      if (isMuted) return;
-      const audio = new Audio(SOUNDS[type]);
-      audio.volume = 0.5;
-      audio.play().catch(e => console.log("Audio play error:", e));
-  };
 
+  // Auto scroll footer
   useEffect(() => {
       if (scrollRef.current) {
           const activeBtn = scrollRef.current.querySelector('.active-q-btn');
@@ -87,7 +74,7 @@ export default function App() {
       if (window.innerWidth > 1024) setIsSidebarOpen(true);
   }, []);
 
-  // --- LOGIC ---
+  // --- LOGIC GIỮ NGUYÊN ---
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const binId = params.get('id');
@@ -101,8 +88,9 @@ export default function App() {
             const record = data.record;
             if(record) {
                 setExamName(record.name);
-                setIsPracticeMode(params.get('mode') === 'practice');
-                startReviewMode(record.qs); 
+                const isPractice = mode === 'practice';
+                setIsPracticeMode(isPractice);
+                startExamFinal(record.qs, isPractice); 
             }
         })
         .catch(err => alert("Lỗi tải đề!"))
@@ -110,46 +98,46 @@ export default function App() {
     }
   }, []);
 
-  const startReviewMode = (qs) => {
-      setQuestions(qs);
-      setScreen('edit'); 
-  };
-
   const startExamFinal = (qsInput = questions, forcePractice = isPracticeMode) => {
-      playSound('click');
-      const shuffle = (arr) => {
+    const shuffle = (arr) => {
         const newArr = [...arr];
         for (let i = newArr.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
         }
         return newArr;
-      };
-      let shuffledQs = JSON.parse(JSON.stringify(qsInput));
-      shuffledQs = shuffle(shuffledQs);
-      shuffledQs = shuffledQs.map(q => {
+    };
+
+    let shuffledQs = JSON.parse(JSON.stringify(qsInput));
+    shuffledQs = shuffle(shuffledQs);
+    shuffledQs = shuffledQs.map(q => {
         if (q.options && q.options.length > 0) {
             const shuffledOptions = shuffle(q.options);
             const fixedKeyOptions = shuffledOptions.map((opt, index) => {
                 let newKey = "";
-                if (q.type === 'single') newKey = String.fromCharCode(65 + index); 
-                else if (q.type === 'group') newKey = String.fromCharCode(97 + index);
-                else newKey = opt.key;
+                if (q.type === 'single') {
+                    newKey = String.fromCharCode(65 + index); 
+                } else if (q.type === 'group') {
+                    newKey = String.fromCharCode(97 + index);
+                } else {
+                    newKey = opt.key;
+                }
                 return { ...opt, key: newKey };
             });
             return { ...q, options: fixedKeyOptions };
         }
         return q;
-      });
-      setQuestions(shuffledQs);
-      setUserAnswers({});
-      setCheckedQuestions({});
-      setCheckError(null);
-      setTimeLeft(shuffledQs.length * 60);
-      setCurrentQuestionIndex(0);
-      setIsPracticeMode(forcePractice);
-      setScreen('exam');
-      setShowQuestionGrid(false); 
+    });
+
+    setQuestions(shuffledQs);
+    setUserAnswers({});
+    setCheckedQuestions({});
+    setCheckError(null);
+    setTimeLeft(shuffledQs.length * 60);
+    setCurrentQuestionIndex(0);
+    setIsPracticeMode(forcePractice);
+    setScreen('exam');
+    setShowQuestionGrid(false); 
   };
 
   const handleCreateShareLink = () => {
@@ -167,6 +155,17 @@ export default function App() {
       }).finally(() => setIsLoading(false));
   };
 
+  useEffect(() => {
+      if (shareLink) {
+          const baseUrl = shareLink.split('&')[0]; 
+          if (shareAsPractice) {
+              if(!baseUrl.includes('mode=practice')) setShareLink(baseUrl + "&mode=practice");
+          } else {
+              setShareLink(baseUrl.replace("&mode=practice", ""));
+          }
+      }
+  }, [shareAsPractice]);
+
   const copyToClipboard = () => { navigator.clipboard.writeText(shareLink); alert("Đã copy link!"); };
 
   const applyQuickKeys = () => {
@@ -175,6 +174,14 @@ export default function App() {
     const newQuestions = [...questions];
     lines.forEach(line => {
         line = line.trim(); if (!line) return;
+        if (line.includes(':') || line.includes('|')) {
+            const separator = line.includes(':') ? ':' : '|';
+            const parts = line.split(separator);
+            const qId = parseInt(parts[0]);
+            const textAns = parts[1].trim();
+            if (newQuestions[qId - 1] && newQuestions[qId - 1].type === 'text') { newQuestions[qId - 1].correctAnswer = textAns; }
+            return;
+        }
         const match = line.toUpperCase().match(/^(\d+)\s*([A-ZĐS]+)$/);
         if (match) {
             const qId = parseInt(match[1]);
@@ -184,6 +191,15 @@ export default function App() {
                 if (q.type === 'single') {
                     const targetKey = keyString.charAt(0);
                     q.options.forEach(opt => opt.isCorrect = (opt.key === targetKey));
+                } else if (q.type === 'group') {
+                    const chars = keyString.split('');
+                    q.options.forEach((opt, idx) => {
+                        if (chars[idx]) {
+                             const c = chars[idx];
+                             if (c === 'D' || c === 'Đ') opt.isCorrect = true;
+                             else if (c === 'S') opt.isCorrect = false;
+                        }
+                    });
                 }
             }
         }
@@ -197,6 +213,7 @@ export default function App() {
       const q = questions.find(item => item.id === qId);
       const uAns = userAnswers[qId];
       let isCorrect = false;
+
       if (q.type === 'single') {
           const correctOpt = q.options.find(o => o.isCorrect);
           if (correctOpt && uAns === correctOpt.key) isCorrect = true;
@@ -209,13 +226,11 @@ export default function App() {
       } else if (q.type === 'text') {
           if (checkAnswerMatch(uAns, q.correctAnswer)) isCorrect = true;
       }
-      
+
       if (isCorrect) {
-          playSound('success');
           setCheckedQuestions(prev => ({ ...prev, [qId]: true }));
           setCheckError(null); 
       } else {
-          playSound('error');
           setCheckError(qId);
       }
   };
@@ -228,18 +243,7 @@ export default function App() {
     setExamName(file.name.replace('.docx', ''));
     const reader = new FileReader();
     reader.onload = async (event) => {
-      const arrayBuffer = event.target.result;
-      const options = {
-        styleMap: ["u => u", "b => b", "i => i", "strike => strike", "highlight => mark"],
-        convertImage: mammoth.images.imgElement((image) => {
-          return image.read("base64").then((imageBuffer) => {
-            return {
-              src: "data:" + image.contentType + ";base64," + imageBuffer
-            };
-          });
-        })
-      };
-      const result = await mammoth.convertToHtml({ arrayBuffer }, options);
+      const result = await mammoth.convertToHtml({ arrayBuffer: event.target.result }, { styleMap: ["u => u", "b => b", "i => i", "strike => strike", "highlight => mark"] });
       parseHtmlToQuestions(result.value);
     };
     reader.readAsArrayBuffer(file);
@@ -254,22 +258,23 @@ export default function App() {
     const singleOptionRegex = /^([A-D])[\.\)\/]\s*(.+)/; const groupOptionRegex = /^([a-d])[\.\)\/]\s*(.+)/;  
     const shortAnswerRegex = /^(Đáp án|HD|Lời giải|Answer)[:\.]\s*(.+)/i;
     const groupKeywords = /Đúng hay Sai|đúng sai|nhận định|mệnh đề/i;
+
     paragraphs.forEach((p) => {
-      let text = p.textContent.trim(); 
-      const htmlContent = p.innerHTML; 
-      if (!text && !p.querySelector('img')) return; 
-      
+      let text = p.textContent.trim(); if (!text) return;
+      const htmlContent = p.innerHTML;
       const uTag = p.querySelector('u'); const bTag = p.querySelector('b') || p.querySelector('strong'); const markTag = p.querySelector('mark');
       let isMarkedCorrect = !!(uTag || markTag || (bTag && bTag.textContent.trim().length > 3));
       const isStrongStart = text.match(strongQuestionRegex); const isWeakStart = text.match(weakQuestionRegex);
       let isNewQuestion = false;
+
       if (isStrongStart && !text.match(singleOptionRegex) && !text.match(groupOptionRegex)) isNewQuestion = true; 
       else if (isWeakStart && !text.match(singleOptionRegex) && !text.match(groupOptionRegex)) {
           if (currentQuestion && currentQuestion.options.length === 0) isNewQuestion = false; else isNewQuestion = true;
       }
+
       if (isNewQuestion) {
         if (currentQuestion) parsedQuestions.push(currentQuestion);
-        currentQuestion = { id: parsedQuestions.length + 1, question: text || htmlContent, type: 'single', options: [], correctAnswer: "" };
+        currentQuestion = { id: parsedQuestions.length + 1, question: text, type: 'single', options: [], correctAnswer: "" };
         if (groupKeywords.test(text)) currentQuestion.type = 'group';
         return; 
       }
@@ -280,11 +285,7 @@ export default function App() {
       if (currentQuestion.type === 'group' && (singleMatch || groupMatch)) { const match = singleMatch || groupMatch; currentQuestion.options.push({ key: match[1].toLowerCase(), text: match[2], isCorrect: isMarkedCorrect }); return; }
       if (groupMatch) { currentQuestion.type = 'group'; currentQuestion.options.push({ key: groupMatch[1].toLowerCase(), text: groupMatch[2], isCorrect: isMarkedCorrect }); return; }
       if (singleMatch) { currentQuestion.type = 'single'; currentQuestion.options.push({ key: singleMatch[1].toUpperCase(), text: singleMatch[2], isCorrect: isMarkedCorrect }); return; }
-      
-      if (currentQuestion.options.length === 0) { 
-          currentQuestion.question += `<br/>${htmlContent}`; 
-          if (groupKeywords.test(text)) currentQuestion.type = 'group'; 
-      }
+      if (currentQuestion.options.length === 0) { currentQuestion.question += `<br/>${htmlContent}`; if (groupKeywords.test(text)) currentQuestion.type = 'group'; }
     });
     if (currentQuestion) parsedQuestions.push(currentQuestion);
     if (parsedQuestions.length > 0) { setQuestions(parsedQuestions); setScreen('edit'); } else { alert("Lỗi: Không tìm thấy câu hỏi nào!"); }
@@ -302,18 +303,12 @@ export default function App() {
   const handleAnswerChange = (qId, val, type, subKey = null) => { 
       if (isPracticeMode && checkedQuestions[qId]) return;
       if (checkError === qId) setCheckError(null);
-      playSound('click');
       setUserAnswers(prev => { 
           if (type === 'single' || type === 'text') return { ...prev, [qId]: val }; 
           else { const currentGroup = prev[qId] || {}; return { ...prev, [qId]: { ...currentGroup, [subKey]: val } }; } 
       }); 
   };
-  const handleSubmit = () => { 
-      playSound('finish');
-      clearInterval(timerRef.current); 
-      calculateScore(); 
-      setScreen('result'); 
-  };
+  const handleSubmit = () => { clearInterval(timerRef.current); calculateScore(); setScreen('result'); };
   
   const calculateScore = () => {
     let totalPoints = 0, maxPoints = questions.length, correctCount = 0;
@@ -350,7 +345,7 @@ export default function App() {
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>;
 
-  // --- UI CONFIG ---
+  // --- XÁC ĐỊNH CHẾ ĐỘ MÀU (HYBRID) ---
   const isExamMode = screen === 'exam' || screen === 'result';
   const containerClass = isExamMode 
     ? "min-h-screen font-sans text-gray-100 bg-[#09090b] selection:bg-cyan-500 selection:text-white"
@@ -377,14 +372,18 @@ export default function App() {
                 </div>
             )}
         </div>
+        
+        {screen === 'exam' && (
+            <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/30 border border-white/10 backdrop-blur-md shadow-inner">
+                <User size={16} className="text-purple-400"/>
+                <span className="font-bold text-sm text-gray-200">Thí sinh</span>
+            </div>
+        )}
 
         <div className="flex items-center gap-3">
             {screen === 'exam' && (
                 <>
-                    <button onClick={() => setIsMuted(!isMuted)} className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all border border-white/5">
-                        {isMuted ? <VolumeX size={18}/> : <Volume2 size={18}/>}
-                    </button>
-                    <div className="flex items-center gap-2 text-cyan-300 bg-cyan-950/40 px-3 py-1.5 rounded-full border border-cyan-500/20 shadow-[0_0_10px_rgba(6,182,212,0.1)]">
+                    <div className="flex items-center gap-2 text-cyan-300 bg-cyan-950/30 px-3 py-1.5 rounded-full border border-cyan-500/20">
                         <Clock size={16}/>
                         <span className="font-mono font-bold">{isPracticeMode ? "∞" : formatTime(timeLeft)}</span>
                     </div>
@@ -393,16 +392,16 @@ export default function App() {
                     </button>
                 </>
             )}
-            {!isGuestMode && screen !== 'exam' && screen !== 'upload' && (<button onClick={() => setScreen('upload')} className="text-gray-500 font-bold text-sm hover:text-blue-600">Trang chủ</button>)}
+            {!isGuestMode && screen !== 'exam' && screen !== 'upload' && (<button onClick={() => setScreen('upload')} className="text-gray-500 font-bold text-sm">Trang chủ</button>)}
         </div>
       </header>
 
       {/* --- MAIN CONTENT --- */}
       <main className="pt-24 pb-32 px-4 h-screen overflow-y-auto no-scrollbar">
         
-        {/* --- UPLOAD SCREEN (LIGHT MODE) --- */}
+        {/* --- UPLOAD SCREEN (GIỮ NGUYÊN) --- */}
         {screen === 'upload' && !isGuestMode && (
-          <div className="flex flex-col items-center justify-center min-h-[70vh] animate-fade-in-up">
+          <div className="flex flex-col items-center justify-center min-h-[80vh] animate-fade-in-up">
              <div className="w-full max-w-lg bg-white p-8 rounded-3xl shadow-xl border border-gray-100 text-center">
                 <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-6 text-indigo-600"><Upload size={40} /></div>
                 <h2 className="text-2xl font-black text-gray-900 mb-2">Tạo & Chia Sẻ Đề</h2>
@@ -420,9 +419,9 @@ export default function App() {
           </div>
         )}
 
-        {/* --- EDIT SCREEN (LIGHT MODE - NO NAME INPUT) --- */}
+        {/* --- EDIT SCREEN (GIỮ NGUYÊN) --- */}
         {screen === 'edit' && !isGuestMode && (
-          <div className="flex flex-col lg:flex-row gap-6 max-w-6xl mx-auto">
+          <div className="flex flex-col lg:flex-row gap-6">
              <div className="flex-1 bg-white rounded-2xl shadow-sm p-4 sm:p-6 border border-gray-100">
                <div className="flex justify-between items-center mb-4 pb-4 border-b">
                  <h2 className="text-lg font-bold text-gray-800 flex gap-2"><Edit3 size={20} className="text-indigo-500"/> Duyệt Đề</h2>
@@ -474,7 +473,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- EXAM SCREEN (NEON CYBERPUNK) --- */}
+        {/* --- EXAM SCREEN (CYBERPUNK NEON STYLE) --- */}
         {screen === 'exam' && currentQ && (
             <div className="max-w-2xl mx-auto relative mt-4">
                 {/* Grid Overlay */}
@@ -515,7 +514,7 @@ export default function App() {
                             <div className="text-cyan-400 text-xs font-black uppercase tracking-[0.2em] bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/20 shadow-[0_0_10px_rgba(6,182,212,0.1)]">Câu {currentQuestionIndex + 1}</div>
                             {isPracticeMode && checkedQuestions[currentQ.id] && <div className="text-emerald-400 text-xs font-bold flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20"><CheckCircle2 size={12}/> Xong</div>}
                         </div>
-                        <div className="text-white text-lg sm:text-2xl font-medium leading-relaxed [&>img]:rounded-xl [&>img]:my-2 [&>img]:shadow-lg" dangerouslySetInnerHTML={{ __html: currentQ.question.replace(/^(Câu)?\s*\d+[\.:]\s*/i, '') }} />
+                        <div className="text-white text-lg sm:text-2xl font-medium leading-relaxed" dangerouslySetInnerHTML={{ __html: currentQ.question.replace(/^(Câu)?\s*\d+[\.:]\s*/i, '') }} />
                     </div>
 
                     <div className="flex items-center gap-4 px-8 py-4">
@@ -526,7 +525,7 @@ export default function App() {
 
                     <div className="px-6 sm:px-8 pb-24 flex-1">
                         
-                        {/* --- THÔNG BÁO CHÚC MỪNG --- */}
+                        {/* --- THÔNG BÁO CHÚC MỪNG (BẮT MẮT) --- */}
                         {isPracticeMode && checkedQuestions[currentQ.id] && (
                              <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center gap-3 animate-bounce shadow-[0_0_20px_rgba(16,185,129,0.2)]">
                                 <div className="p-2 bg-emerald-500/20 rounded-full text-emerald-400"><Check size={20}/></div>
@@ -556,7 +555,7 @@ export default function App() {
                                 let textStyle = "text-gray-300";
 
                                 if (isChecked) {
-                                    if (opt.isCorrect) {
+                                    if (opt.isCorrect) { // ĐÚNG -> Xanh Neon Rực Rỡ
                                         wrapperStyle = "border-emerald-500/50 bg-emerald-500/10 shadow-[0_0_25px_rgba(16,185,129,0.3)]";
                                         keyStyle = "bg-emerald-500 text-black font-bold border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.5)]";
                                         textStyle = "text-emerald-300 font-bold";
@@ -565,11 +564,11 @@ export default function App() {
                                     } else {
                                         wrapperStyle = "border-transparent bg-transparent opacity-20";
                                     }
-                                } else if (isError && isSelected) {
+                                } else if (isError && isSelected) { // SAI -> Đỏ Neon Rực Rỡ
                                     wrapperStyle = "border-red-500/50 bg-red-500/10 shadow-[0_0_25px_rgba(239,68,68,0.3)]";
                                     keyStyle = "bg-red-500 text-white border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.5)]";
                                     textStyle = "text-red-300 font-bold";
-                                } else if (isSelected) {
+                                } else if (isSelected) { // ĐANG CHỌN -> Xanh Dương/Tím Neon
                                     wrapperStyle = "border-indigo-500/50 bg-indigo-500/20 shadow-[0_0_20px_rgba(99,102,241,0.2)] scale-[1.02]";
                                     keyStyle = "bg-indigo-500 text-white font-bold border-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.5)]";
                                     textStyle = "text-indigo-200 font-bold";
@@ -642,7 +641,7 @@ export default function App() {
         )}
       </main>
 
-      {/* --- FOOTER (FLOATING DOCK) --- */}
+      {/* --- FOOTER (FLOATING DOCK - CÁCH ĐIỆU GỌN GÀNG) --- */}
       {screen === 'exam' && (
           <div className="fixed bottom-8 left-0 right-0 flex justify-center z-50 pointer-events-none">
               <div className="pointer-events-auto bg-[#18181b]/90 backdrop-blur-2xl border border-white/10 rounded-full p-2 flex items-center gap-4 shadow-[0_20px_50px_rgba(0,0,0,0.8)] ring-1 ring-white/5">
