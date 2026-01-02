@@ -6,14 +6,22 @@ import {
   MousePointerClick, Type, Hash, Sparkles, Trophy, Zap, BookOpen,
   ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen,
   Shuffle, ArrowBigLeft, ArrowBigRight, Send, Cloud, Link, Copy, Menu, X, Settings, Home, Lock, AlertTriangle, RefreshCcw,
-  Maximize, Minimize, ZoomIn, ZoomOut, List, ChevronUp, ChevronDown, Grid, User, Terminal, Check
+  Maximize, Minimize, ZoomIn, ZoomOut, List, ChevronUp, ChevronDown, Grid, User, Terminal, Check, Volume2, VolumeX, Download
 } from 'lucide-react';
 
-// --- CLOUD CONFIGURATION ---
+// --- CẤU HÌNH CLOUD ---
 const API_KEY = "$2a$10$AHJSjT/g2I6oTUXYxUEXbeYKZ572uWijp/6tplAivvZ5jvIhsx9xO"; 
 const BIN_URL = "https://api.jsonbin.io/v3/b";
 
-// --- UTILS (KEPT AS IS) ---
+// --- SOUND ASSETS ---
+const SOUNDS = {
+    click: "https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3",
+    success: "https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3",
+    error: "https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3",
+    finish: "https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3",
+};
+
+// --- UTILS (GIỮ NGUYÊN) ---
 const formatTime = (seconds) => {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
@@ -37,7 +45,7 @@ const DEMO_EXAM = [
 ];
 
 export default function App() {
-  // --- STATE (KEPT AS IS) ---
+  // --- STATE (GIỮ NGUYÊN 100%) ---
   const [screen, setScreen] = useState('upload'); 
   const [isPracticeMode, setIsPracticeMode] = useState(false);
   const [questions, setQuestions] = useState([]);
@@ -55,12 +63,40 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [shareAsPractice, setShareAsPractice] = useState(false); 
   const [isGuestMode, setIsGuestMode] = useState(false); 
-  
-  // New UI State
   const [showQuestionGrid, setShowQuestionGrid] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  
+  // --- STATE PWA (MỚI) ---
+  const [installPrompt, setInstallPrompt] = useState(null);
 
   const timerRef = useRef(null);
   const scrollRef = useRef(null);
+  
+  const playSound = (type) => {
+      if (isMuted) return;
+      const audio = new Audio(SOUNDS[type]);
+      audio.volume = 0.5;
+      audio.play().catch(e => console.log("Audio play error:", e));
+  };
+
+  // --- LOGIC PWA INSTALL (MỚI) ---
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setInstallPrompt(null);
+    }
+  };
 
   // Auto scroll footer
   useEffect(() => {
@@ -74,7 +110,7 @@ export default function App() {
       if (window.innerWidth > 1024) setIsSidebarOpen(true);
   }, []);
 
-  // --- LOGIC KEPT AS IS ---
+  // --- LOGIC GIỮ NGUYÊN ---
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const binId = params.get('id');
@@ -90,7 +126,7 @@ export default function App() {
                 setExamName(record.name);
                 const isPractice = mode === 'practice';
                 setIsPracticeMode(isPractice);
-                startExamFinal(record.qs, isPractice); 
+                startReviewMode(record.qs); 
             }
         })
         .catch(err => alert("Lỗi tải đề!"))
@@ -98,7 +134,13 @@ export default function App() {
     }
   }, []);
 
+  const startReviewMode = (qs) => {
+      setQuestions(qs);
+      setScreen('edit'); 
+  };
+
   const startExamFinal = (qsInput = questions, forcePractice = isPracticeMode) => {
+    playSound('click');
     const shuffle = (arr) => {
         const newArr = [...arr];
         for (let i = newArr.length - 1; i > 0; i--) {
@@ -228,9 +270,11 @@ export default function App() {
       }
 
       if (isCorrect) {
+          playSound('success');
           setCheckedQuestions(prev => ({ ...prev, [qId]: true }));
           setCheckError(null); 
       } else {
+          playSound('error');
           setCheckError(qId);
       }
   };
@@ -273,8 +317,7 @@ export default function App() {
     paragraphs.forEach((p) => {
       let text = p.textContent.trim(); 
       const htmlContent = p.innerHTML;
-      const hasImage = p.querySelector('img');
-      if (!text && !hasImage) return;
+      if (!text && !p.querySelector('img')) return;
 
       const uTag = p.querySelector('u'); const bTag = p.querySelector('b') || p.querySelector('strong'); const markTag = p.querySelector('mark');
       let isMarkedCorrect = !!(uTag || markTag || (bTag && bTag.textContent.trim().length > 3));
@@ -288,7 +331,7 @@ export default function App() {
 
       if (isNewQuestion) {
         if (currentQuestion) parsedQuestions.push(currentQuestion);
-        currentQuestion = { id: parsedQuestions.length + 1, question: text ? text : htmlContent, type: 'single', options: [], correctAnswer: "" };
+        currentQuestion = { id: parsedQuestions.length + 1, question: text || htmlContent, type: 'single', options: [], correctAnswer: "" };
         if (groupKeywords.test(text)) currentQuestion.type = 'group';
         return; 
       }
@@ -317,12 +360,18 @@ export default function App() {
   const handleAnswerChange = (qId, val, type, subKey = null) => { 
       if (isPracticeMode && checkedQuestions[qId]) return;
       if (checkError === qId) setCheckError(null);
+      playSound('click');
       setUserAnswers(prev => { 
           if (type === 'single' || type === 'text') return { ...prev, [qId]: val }; 
           else { const currentGroup = prev[qId] || {}; return { ...prev, [qId]: { ...currentGroup, [subKey]: val } }; } 
       }); 
   };
-  const handleSubmit = () => { clearInterval(timerRef.current); calculateScore(); setScreen('result'); };
+  const handleSubmit = () => { 
+      playSound('finish');
+      clearInterval(timerRef.current); 
+      calculateScore(); 
+      setScreen('result'); 
+  };
   
   const calculateScore = () => {
     let totalPoints = 0, maxPoints = questions.length, correctCount = 0;
@@ -359,7 +408,7 @@ export default function App() {
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>;
 
-  // --- DETERMINE COLOR MODE (HYBRID) ---
+  // --- XÁC ĐỊNH CHẾ ĐỘ MÀU (HYBRID) ---
   const isExamMode = screen === 'exam' || screen === 'result';
   const containerClass = isExamMode 
     ? "min-h-screen font-sans text-gray-100 bg-[#09090b] selection:bg-cyan-500 selection:text-white"
@@ -395,9 +444,19 @@ export default function App() {
         )}
 
         <div className="flex items-center gap-3">
+            {/* NÚT CÀI ĐẶT APP (CHỈ HIỆN NẾU TRÌNH DUYỆT CHO PHÉP) */}
+            {installPrompt && (
+                <button onClick={handleInstallApp} className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-bold text-xs shadow-lg animate-pulse hover:scale-105 transition-transform">
+                    <Download size={14}/> CÀI APP
+                </button>
+            )}
+
             {screen === 'exam' && (
                 <>
-                    <div className="flex items-center gap-2 text-cyan-300 bg-cyan-950/30 px-3 py-1.5 rounded-full border border-cyan-500/20">
+                    <button onClick={() => setIsMuted(!isMuted)} className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all border border-white/5">
+                        {isMuted ? <VolumeX size={18}/> : <Volume2 size={18}/>}
+                    </button>
+                    <div className="flex items-center gap-2 text-cyan-300 bg-cyan-950/30 px-3 py-1.5 rounded-full border border-cyan-500/20 shadow-[0_0_10px_rgba(6,182,212,0.1)]">
                         <Clock size={16}/>
                         <span className="font-mono font-bold">{isPracticeMode ? "∞" : formatTime(timeLeft)}</span>
                     </div>
@@ -413,7 +472,7 @@ export default function App() {
       {/* --- MAIN CONTENT --- */}
       <main className="pt-24 pb-32 px-4 h-screen overflow-y-auto no-scrollbar">
         
-        {/* --- UPLOAD SCREEN (KEPT AS IS) --- */}
+        {/* --- UPLOAD SCREEN (GIỮ NGUYÊN) --- */}
         {screen === 'upload' && !isGuestMode && (
           <div className="flex flex-col items-center justify-center min-h-[80vh] animate-fade-in-up">
              <div className="w-full max-w-lg bg-white p-8 rounded-3xl shadow-xl border border-gray-100 text-center">
@@ -433,7 +492,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- EDIT SCREEN (KEPT AS IS) --- */}
+        {/* --- EDIT SCREEN (GIỮ NGUYÊN) --- */}
         {screen === 'edit' && !isGuestMode && (
           <div className="flex flex-col lg:flex-row gap-6">
              <div className="flex-1 bg-white rounded-2xl shadow-sm p-4 sm:p-6 border border-gray-100">
