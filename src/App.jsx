@@ -593,14 +593,9 @@ export default function App() {
                             <div className="text-cyan-400 text-xs font-black uppercase tracking-[0.2em] bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/20 shadow-[0_0_10px_rgba(6,182,212,0.1)]">Câu {currentQuestionIndex + 1}</div>
                             {isPracticeMode && checkedQuestions[currentQ.id] && <div className="text-emerald-400 text-xs font-bold flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20"><CheckCircle2 size={12}/> Xong</div>}
                         </div>
-                        <div className="text-white text-lg sm:text-2xl font-medium leading-relaxed [&>img]:rounded-xl [&>img]:my-2 [&>img]:shadow-lg" dangerouslySetInnerHTML={{ __html: currentQ.question.replace(/^(Câu)?\s*\d+[\.:]\s*/i, '') }} />
+                        <div className="text-white text-lg sm:text-2xl font-medium leading-relaxed" dangerouslySetInnerHTML={{ __html: currentQ.question.replace(/^(Câu)?\s*\d+[\.:]\s*/i, '') }} />
                     </div>
 
-                    <div className="flex items-center gap-4 px-8 py-4">
-                        <div className="h-px bg-white/5 flex-1"></div>
-                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em]">Select Answer</span>
-                        <div className="h-px bg-white/5 flex-1"></div>
-                    </div>
 
                     <div className="px-6 sm:px-8 pb-24 flex-1">
                         
