@@ -21,7 +21,7 @@ const SOUNDS = {
     finish: "https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3",
 };
 
-// --- UTILS (GIỮ NGUYÊN) ---
+// --- UTILS ---
 const formatTime = (seconds) => {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
@@ -45,7 +45,7 @@ const DEMO_EXAM = [
 ];
 
 export default function App() {
-  // --- STATE (GIỮ NGUYÊN 100%) ---
+  // --- STATE ---
   const [screen, setScreen] = useState('upload'); 
   const [isPracticeMode, setIsPracticeMode] = useState(false);
   const [questions, setQuestions] = useState([]);
@@ -66,7 +66,7 @@ export default function App() {
   const [showQuestionGrid, setShowQuestionGrid] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   
-  // --- STATE PWA (MỚI) ---
+  // --- STATE PWA ---
   const [installPrompt, setInstallPrompt] = useState(null);
 
   const timerRef = useRef(null);
@@ -79,7 +79,7 @@ export default function App() {
       audio.play().catch(e => console.log("Audio play error:", e));
   };
 
-  // --- LOGIC PWA INSTALL (MỚI) ---
+  // --- LOGIC PWA INSTALL ---
   useEffect(() => {
     const handler = (e) => {
       e.preventDefault();
@@ -110,7 +110,7 @@ export default function App() {
       if (window.innerWidth > 1024) setIsSidebarOpen(true);
   }, []);
 
-  // --- LOGIC GIỮ NGUYÊN ---
+  // --- LOGIC FETCH DATA ---
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const binId = params.get('id');
@@ -129,7 +129,7 @@ export default function App() {
                 startReviewMode(record.qs); 
             }
         })
-        .catch(err => alert("Lỗi tải đề!"))
+        .catch(err => alert("Lỗi tải đề! Link có thể bị hỏng."))
         .finally(() => setIsLoading(false));
     }
   }, []);
@@ -408,7 +408,7 @@ export default function App() {
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>;
 
-  // --- XÁC ĐỊNH CHẾ ĐỘ MÀU (HYBRID) ---
+  // --- XÁC ĐỊNH CHẾ ĐỘ MÀU ---
   const isExamMode = screen === 'exam' || screen === 'result';
   const containerClass = isExamMode 
     ? "min-h-screen font-sans text-gray-100 bg-[#09090b] selection:bg-cyan-500 selection:text-white"
@@ -435,16 +435,8 @@ export default function App() {
                 </div>
             )}
         </div>
-        
-        {screen === 'exam' && (
-            <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/30 border border-white/10 backdrop-blur-md shadow-inner">
-                <User size={16} className="text-purple-400"/>
-                <span className="font-bold text-sm text-gray-200">Thí sinh</span>
-            </div>
-        )}
 
         <div className="flex items-center gap-3">
-            {/* NÚT CÀI ĐẶT APP (CHỈ HIỆN NẾU TRÌNH DUYỆT CHO PHÉP) */}
             {installPrompt && (
                 <button onClick={handleInstallApp} className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-bold text-xs shadow-lg animate-pulse hover:scale-105 transition-transform">
                     <Download size={14}/> CÀI APP
@@ -472,7 +464,7 @@ export default function App() {
       {/* --- MAIN CONTENT --- */}
       <main className="pt-24 pb-32 px-4 h-screen overflow-y-auto no-scrollbar">
         
-        {/* --- UPLOAD SCREEN (GIỮ NGUYÊN) --- */}
+        {/* --- UPLOAD SCREEN --- */}
         {screen === 'upload' && !isGuestMode && (
           <div className="flex flex-col items-center justify-center min-h-[80vh] animate-fade-in-up">
              <div className="w-full max-w-lg bg-white p-8 rounded-3xl shadow-xl border border-gray-100 text-center">
@@ -492,7 +484,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- EDIT SCREEN (GIỮ NGUYÊN) --- */}
+        {/* --- EDIT SCREEN (CHỦ ĐỀ) --- */}
         {screen === 'edit' && !isGuestMode && (
           <div className="flex flex-col lg:flex-row gap-6">
              <div className="flex-1 bg-white rounded-2xl shadow-sm p-4 sm:p-6 border border-gray-100">
@@ -524,21 +516,19 @@ export default function App() {
              <div className="lg:w-80 flex flex-col gap-4">
                 <div className="bg-indigo-600 rounded-2xl shadow-lg p-6 text-white">
                     <h3 className="font-bold text-xl mb-4 text-center">Chia Sẻ & Thi</h3>
-                    {!isGuestMode && (
-                        <div className="mb-4 space-y-3">
-                            <div className="flex items-center gap-2 mb-4 bg-white/20 p-2 rounded-lg cursor-pointer hover:bg-white/30 transition-all" onClick={() => setShareAsPractice(!shareAsPractice)}>
-                                <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${shareAsPractice ? 'bg-green-400 border-green-400' : 'border-white/50'}`}>
-                                    {shareAsPractice && <Check size={14} className="text-white" strokeWidth={3} />}
-                                </div>
-                                <span className="text-sm font-bold text-white/90">Link cho Luyện tập</span>
+                    <div className="mb-4 space-y-3">
+                        <div className="flex items-center gap-2 mb-2 bg-white/20 p-2 rounded-lg cursor-pointer hover:bg-white/30 transition-all" onClick={() => setShareAsPractice(!shareAsPractice)}>
+                            <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${shareAsPractice ? 'bg-green-400 border-green-400' : 'border-white/50'}`}>
+                                {shareAsPractice && <Check size={14} className="text-white" strokeWidth={3} />}
                             </div>
-                             {!shareLink ? (
-                                <button onClick={handleCreateShareLink} className="w-full bg-white text-indigo-700 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-sm hover:bg-gray-50 mb-3"><Cloud size={18}/> Tạo Link Ngay</button>
-                            ) : (
-                                <div className="bg-white/20 p-3 rounded-xl mb-3"><div className="bg-white text-indigo-900 p-2 rounded text-xs truncate mb-2">{shareLink}</div><button onClick={copyToClipboard} className="w-full bg-green-400 hover:bg-green-500 text-white py-2 rounded-lg font-bold text-sm">Sao chép</button></div>
-                            )}
+                            <span className="text-sm font-bold text-white/90">Link cho Luyện tập</span>
                         </div>
-                    )}
+                         {!shareLink ? (
+                            <button onClick={handleCreateShareLink} className="w-full bg-white text-indigo-700 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-sm hover:bg-gray-50 mb-3"><Cloud size={18}/> Tạo Link Ngay</button>
+                        ) : (
+                            <div className="bg-white/20 p-3 rounded-xl mb-3"><div className="bg-white text-indigo-900 p-2 rounded text-xs truncate mb-2">{shareLink}</div><button onClick={copyToClipboard} className="w-full bg-green-400 hover:bg-green-500 text-white py-2 rounded-lg font-bold text-sm">Sao chép</button></div>
+                        )}
+                    </div>
                     <button onClick={() => startExamFinal(questions)} className="w-full bg-yellow-400 hover:bg-yellow-500 text-yellow-900 py-3 rounded-xl font-bold text-lg flex items-center justify-center gap-2 shadow-lg animate-pulse"><Play size={20}/> VÀO THI NGAY</button>
                 </div>
                 
@@ -552,10 +542,32 @@ export default function App() {
           </div>
         )}
 
-        {/* --- EXAM SCREEN (CYBERPUNK NEON STYLE) --- */}
+        {/* --- SẢNH CHỜ CHO KHÁCH (GUEST LOBBY) --- */}
+        {screen === 'edit' && isGuestMode && (
+            <div className="flex flex-col items-center justify-center min-h-[80vh] animate-fade-in-up">
+                <div className="bg-[#18181b] p-8 rounded-3xl border border-white/10 shadow-2xl text-center max-w-md w-full relative overflow-hidden group">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
+                    <div className="absolute -top-20 -left-20 w-40 h-40 bg-purple-500/20 rounded-full blur-[80px] group-hover:bg-purple-500/30 transition-all duration-1000"></div>
+                    
+                    <h2 className="text-3xl font-black text-white mb-2 tracking-tight">{examName}</h2>
+                    <div className="flex justify-center gap-4 mb-8">
+                        <span className="px-3 py-1 bg-white/5 rounded-full text-xs font-mono text-gray-400 border border-white/5">{questions.length} câu hỏi</span>
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold border ${isPracticeMode ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
+                            {isPracticeMode ? 'Luyện Tập' : 'Thi Thử'}
+                        </span>
+                    </div>
+
+                    <button onClick={() => startExamFinal(questions)} className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white py-4 rounded-xl font-bold text-lg shadow-[0_0_30px_rgba(99,102,241,0.4)] hover:shadow-[0_0_50px_rgba(99,102,241,0.6)] transition-all transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3">
+                        <Play size={24} fill="currentColor"/> VÀO THI NGAY
+                    </button>
+                    <p className="mt-4 text-xs text-gray-500">Hệ thống trắc nghiệm Azota Ultra</p>
+                </div>
+            </div>
+        )}
+
+        {/* --- EXAM SCREEN --- */}
         {screen === 'exam' && currentQ && (
             <div className="max-w-2xl mx-auto relative mt-4">
-                {/* Grid Overlay */}
                 {showQuestionGrid && (
                     <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[60] flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowQuestionGrid(false)}>
                         <div className="bg-[#18181b] w-full max-w-md p-6 rounded-3xl border border-white/10 shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -584,7 +596,6 @@ export default function App() {
                     </div>
                 )}
 
-                {/* Question Card */}
                 <div className="bg-[#18181b]/60 backdrop-blur-xl border border-white/10 rounded-[2rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] min-h-[500px] flex flex-col relative transition-all duration-500">
                     <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-70"></div>
                     
@@ -593,13 +604,16 @@ export default function App() {
                             <div className="text-cyan-400 text-xs font-black uppercase tracking-[0.2em] bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/20 shadow-[0_0_10px_rgba(6,182,212,0.1)]">Câu {currentQuestionIndex + 1}</div>
                             {isPracticeMode && checkedQuestions[currentQ.id] && <div className="text-emerald-400 text-xs font-bold flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20"><CheckCircle2 size={12}/> Xong</div>}
                         </div>
-                        <div className="text-white text-lg sm:text-2xl font-medium leading-relaxed" dangerouslySetInnerHTML={{ __html: currentQ.question.replace(/^(Câu)?\s*\d+[\.:]\s*/i, '') }} />
+                        <div className="text-white text-lg sm:text-2xl font-medium leading-relaxed [&>img]:rounded-xl [&>img]:my-2 [&>img]:shadow-lg" dangerouslySetInnerHTML={{ __html: currentQ.question.replace(/^(Câu)?\s*\d+[\.:]\s*/i, '') }} />
                     </div>
 
+                    <div className="flex items-center gap-4 px-8 py-4">
+                        <div className="h-px bg-white/5 flex-1"></div>
+                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em]">Select Answer</span>
+                        <div className="h-px bg-white/5 flex-1"></div>
+                    </div>
 
                     <div className="px-6 sm:px-8 pb-24 flex-1">
-                        
-                        {/* --- THÔNG BÁO CHÚC MỪNG (BẮT MẮT) --- */}
                         {isPracticeMode && checkedQuestions[currentQ.id] && (
                              <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center gap-3 animate-bounce shadow-[0_0_20px_rgba(16,185,129,0.2)]">
                                 <div className="p-2 bg-emerald-500/20 rounded-full text-emerald-400"><Check size={20}/></div>
@@ -617,7 +631,6 @@ export default function App() {
                         )}
 
                         <div className="flex flex-col gap-4">
-                            {/* SINGLE CHOICE */}
                             {currentQ.type === 'single' && currentQ.options.map((opt) => {
                                 const uAns = userAnswers[currentQ.id];
                                 const isChecked = isPracticeMode && checkedQuestions[currentQ.id];
@@ -629,7 +642,7 @@ export default function App() {
                                 let textStyle = "text-gray-300";
 
                                 if (isChecked) {
-                                    if (opt.isCorrect) { // ĐÚNG -> Xanh Neon Rực Rỡ
+                                    if (opt.isCorrect) {
                                         wrapperStyle = "border-emerald-500/50 bg-emerald-500/10 shadow-[0_0_25px_rgba(16,185,129,0.3)]";
                                         keyStyle = "bg-emerald-500 text-black font-bold border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.5)]";
                                         textStyle = "text-emerald-300 font-bold";
@@ -638,11 +651,11 @@ export default function App() {
                                     } else {
                                         wrapperStyle = "border-transparent bg-transparent opacity-20";
                                     }
-                                } else if (isError && isSelected) { // SAI -> Đỏ Neon Rực Rỡ
+                                } else if (isError && isSelected) {
                                     wrapperStyle = "border-red-500/50 bg-red-500/10 shadow-[0_0_25px_rgba(239,68,68,0.3)]";
                                     keyStyle = "bg-red-500 text-white border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.5)]";
                                     textStyle = "text-red-300 font-bold";
-                                } else if (isSelected) { // ĐANG CHỌN -> Xanh Dương/Tím Neon
+                                } else if (isSelected) {
                                     wrapperStyle = "border-indigo-500/50 bg-indigo-500/20 shadow-[0_0_20px_rgba(99,102,241,0.2)] scale-[1.02]";
                                     keyStyle = "bg-indigo-500 text-white font-bold border-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.5)]";
                                     textStyle = "text-indigo-200 font-bold";
@@ -661,7 +674,6 @@ export default function App() {
                                 )
                             })}
 
-                            {/* GROUP / TEXT */}
                             {currentQ.type === 'group' && currentQ.options.map((opt) => (
                                 <div key={opt.key} className="p-4 border border-white/5 rounded-2xl bg-white/5 flex justify-between items-center hover:bg-white/10 transition-colors">
                                      <div className="font-medium text-gray-200"><span className="font-bold text-cyan-400 mr-2">{opt.key}.</span>{opt.text}</div>
@@ -715,25 +727,19 @@ export default function App() {
         )}
       </main>
 
-      {/* --- FOOTER (FLOATING DOCK - CÁCH ĐIỆU GỌN GÀNG) --- */}
+      {/* --- FOOTER --- */}
       {screen === 'exam' && (
           <div className="fixed bottom-8 left-0 right-0 flex justify-center z-50 pointer-events-none">
               <div className="pointer-events-auto bg-[#18181b]/90 backdrop-blur-2xl border border-white/10 rounded-full p-2 flex items-center gap-4 shadow-[0_20px_50px_rgba(0,0,0,0.8)] ring-1 ring-white/5">
-                  
-                  {/* Prev */}
                   <button onClick={handlePrevQuestion} disabled={currentQuestionIndex === 0} 
                           className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${currentQuestionIndex === 0 ? 'text-gray-600' : 'bg-white/5 text-white hover:bg-white/10 hover:scale-110'}`}>
                       <ChevronLeft size={24}/>
                   </button>
-
-                  {/* Center Info - Compact Neon Style */}
                   <button onClick={() => setShowQuestionGrid(true)} 
                           className="h-12 px-6 rounded-full bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white flex items-center gap-3 font-bold shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all hover:scale-105 active:scale-95 group">
                       <span className="text-lg tracking-widest">{currentQuestionIndex + 1}<span className="text-white/40 text-sm mx-1">/</span><span className="text-sm opacity-70">{questions.length}</span></span>
                       <Grid size={18} className="opacity-70 group-hover:rotate-90 transition-transform"/>
                   </button>
-
-                  {/* Next / Submit */}
                   {currentQuestionIndex < questions.length - 1 ? (
                       <button onClick={handleNextQuestion} 
                               className="w-12 h-12 rounded-full bg-white/5 text-white hover:bg-white/10 hover:scale-110 flex items-center justify-center transition-all duration-300">
@@ -744,11 +750,7 @@ export default function App() {
                           NỘP
                       </button>
                   )}
-                  
-                  {/* Vertical Divider */}
                   <div className="w-[1px] h-6 bg-white/10"></div>
-                  
-                  {/* Check Button (Glowing Orb) */}
                   <button onClick={() => handleCheckQuestion(currentQ.id)} 
                           className={`w-12 h-12 rounded-full flex items-center justify-center text-white shadow-lg transition-all duration-300 active:scale-90 hover:scale-110 hover:shadow-[0_0_30px_currentColor] ${checkError === currentQ.id ? 'bg-orange-500 shadow-[0_0_15px_orange]' : 'bg-purple-600 shadow-[0_0_15px_purple]'}`}>
                       {checkError === currentQ.id ? <RefreshCcw size={20}/> : <Eye size={20}/>}
