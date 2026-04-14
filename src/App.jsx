@@ -182,19 +182,50 @@ export default function App() {
     setShowQuestionGrid(false); 
   };
 
-  const handleCreateShareLink = () => {
+  const handleCreateShareLink = async () => {
       if(API_KEY.length < 10) return alert("Chưa nhập API Key!");
-      setIsLoading(true);
+      
+      // Tính toán thử dung lượng file gửi đi (để cảnh báo)
       const examData = { name: examName, qs: questions };
-      fetch(BIN_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY, 'X-Bin-Private': 'false' },
-          body: JSON.stringify(examData)
-      }).then(res => res.json()).then(data => {
+      const payloadSize = JSON.stringify(examData).length;
+      
+      // Nếu dung lượng vượt quá 100KB (giới hạn của JSONBin free)
+      if (payloadSize > 100000) {
+          alert(`CẢNH BÁO: Đề thi của bạn quá nặng (${Math.round(payloadSize/1024)} KB) do chứa nhiều hình ảnh.\nMáy chủ miễn phí chỉ nhận tối đa 100KB.\n\nHãy thử: Xóa bớt ảnh trong file Word hoặc làm một file Word CHỈ CÓ CHỮ để test thử nhé!`);
+          return; // Dừng lại không gửi nữa
+      }
+
+      setIsLoading(true);
+
+      try {
+          const response = await fetch(BIN_URL, {
+              method: 'POST',
+              headers: { 
+                  'Content-Type': 'application/json', 
+                  'X-Master-Key': API_KEY, 
+                  'X-Bin-Private': 'false' 
+              },
+              body: JSON.stringify(examData)
+          });
+
+          const data = await response.json();
+
+          // Nếu máy chủ báo lỗi (VD: Sai API Key, hết lượt)
+          if (!response.ok) {
+              throw new Error(data.message || "Từ chối truy cập từ máy chủ.");
+          }
+
+          // Nếu thành công
           let url = `${window.location.origin}${window.location.pathname}?id=${data.metadata.id}`;
           if (shareAsPractice) url += "&mode=practice";
           setShareLink(url);
-      }).finally(() => setIsLoading(false));
+          
+      } catch (error) {
+          console.error("Lỗi chi tiết:", error);
+          alert(`Tạo link thất bại!\nNguyên nhân: ${error.message}\n\n👉 Mẹo: Hãy kiểm tra lại API Key xem đã thay đúng của bạn chưa nhé!`);
+      } finally {
+          setIsLoading(false);
+      }
   };
 
   useEffect(() => {
