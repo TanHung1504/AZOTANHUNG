@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 
 // --- CẤU HÌNH CLOUD ---
-const API_KEY = "$2a$10$b7HtnzTg5UW8tcuGcDIkw.r4CZW3d73s.gDBO8BAar8ZxvbT9lnhG"; 
+const API_KEY = "$2a$10$aaFVzK7xD//Umh7WqUTZe.wMOz9zV4ShbJGU7rLC8qY8MugTVeDXO"; 
 const BIN_URL = "https://api.jsonbin.io/v3/b";
 
 // --- SOUND ASSETS ---
