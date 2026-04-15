@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import mammoth from 'mammoth';
-import confetti from 'canvas-confetti';
 import { 
   Upload, Clock, CheckCircle2, XCircle, FileText, Play, RotateCcw, 
   Eye, ToggleLeft, ToggleRight, Edit3, Save, ArrowRight, 
@@ -80,20 +79,6 @@ export default function App() {
       audio.play().catch(e => console.log("Audio play error:", e));
   };
 
-  const triggerConfetti = () => {
-      var duration = 3 * 1000;
-      var animationEnd = Date.now() + duration;
-      var defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
-      var random = function(min, max) { return Math.random() * (max - min) + min; };
-      var interval = setInterval(function() {
-        var timeLeft = animationEnd - Date.now();
-        if (timeLeft <= 0) { return clearInterval(interval); }
-        var particleCount = 50 * (timeLeft / duration);
-        confetti(Object.assign({}, defaults, { particleCount, origin: { x: random(0.1, 0.3), y: Math.random() - 0.2 } }));
-        confetti(Object.assign({}, defaults, { particleCount, origin: { x: random(0.7, 0.9), y: Math.random() - 0.2 } }));
-      }, 250);
-  };
-
   // --- LOGIC PWA INSTALL ---
   useEffect(() => {
     const handler = (e) => {
@@ -113,6 +98,7 @@ export default function App() {
     }
   };
 
+  // Auto scroll footer
   useEffect(() => {
       if (scrollRef.current) {
           const activeBtn = scrollRef.current.querySelector('.active-q-btn');
@@ -199,12 +185,14 @@ export default function App() {
   const handleCreateShareLink = async () => {
       if(API_KEY.length < 10) return alert("Chưa nhập API Key!");
       
+      // Tính toán thử dung lượng file gửi đi (để cảnh báo)
       const examData = { name: examName, qs: questions };
       const payloadSize = JSON.stringify(examData).length;
       
+      // Nếu dung lượng vượt quá 100KB (giới hạn của JSONBin free)
       if (payloadSize > 100000) {
           alert(`CẢNH BÁO: Đề thi của bạn quá nặng (${Math.round(payloadSize/1024)} KB) do chứa nhiều hình ảnh.\nMáy chủ miễn phí chỉ nhận tối đa 100KB.\n\nHãy thử: Xóa bớt ảnh trong file Word hoặc làm một file Word CHỈ CÓ CHỮ để test thử nhé!`);
-          return; 
+          return; // Dừng lại không gửi nữa
       }
 
       setIsLoading(true);
@@ -222,17 +210,19 @@ export default function App() {
 
           const data = await response.json();
 
+          // Nếu máy chủ báo lỗi (VD: Sai API Key, hết lượt)
           if (!response.ok) {
               throw new Error(data.message || "Từ chối truy cập từ máy chủ.");
           }
 
+          // Nếu thành công
           let url = `${window.location.origin}${window.location.pathname}?id=${data.metadata.id}`;
           if (shareAsPractice) url += "&mode=practice";
           setShareLink(url);
           
       } catch (error) {
           console.error("Lỗi chi tiết:", error);
-          alert(`Tạo link thất bại!\nNguyên nhân: ${error.message}`);
+          alert(`Tạo link thất bại!\nNguyên nhân: ${error.message}\n\n👉 Mẹo: Hãy kiểm tra lại API Key xem đã thay đúng của bạn chưa nhé!`);
       } finally {
           setIsLoading(false);
       }
@@ -292,10 +282,9 @@ export default function App() {
     alert("Đã cập nhật đáp án!");
   };
 
-  // --- HÀM CHECK ĐÁP ÁN THÔNG MINH (CHỐNG DELAY ENTER) ---
-  const handleCheckQuestion = (qId, overrideAns = undefined) => {
+  const handleCheckQuestion = (qId) => {
       const q = questions.find(item => item.id === qId);
-      const uAns = overrideAns !== undefined ? overrideAns : userAnswers[qId];
+      const uAns = userAnswers[qId];
       let isCorrect = false;
 
       if (q.type === 'single') {
@@ -318,10 +307,6 @@ export default function App() {
       } else {
           playSound('error');
           setCheckError(qId);
-      }
-      
-      if (overrideAns !== undefined) {
-          setUserAnswers(prev => ({ ...prev, [qId]: overrideAns }));
       }
   };
 
@@ -412,10 +397,8 @@ export default function App() {
           else { const currentGroup = prev[qId] || {}; return { ...prev, [qId]: { ...currentGroup, [subKey]: val } }; } 
       }); 
   };
-  
   const handleSubmit = () => { 
       playSound('finish');
-      triggerConfetti();
       clearInterval(timerRef.current); 
       calculateScore(); 
       setScreen('result'); 
@@ -432,57 +415,31 @@ export default function App() {
     setScoreData({ score: ((totalPoints / maxPoints) * 10).toFixed(2), correctCount, total: questions.length });
   };
 
-  // --- LOGIC BÀN PHÍM HOÀN HẢO ---
   useEffect(() => {
     const handleKeyDown = (e) => {
         if (screen !== 'exam') return;
-        
-        const currentQ = questions[currentQuestionIndex]; 
-        if (!currentQ) return;
-
-        const isTyping = ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
-
-        if (e.key === 'Enter') {
-            e.preventDefault(); 
-            
-            if (isTyping && e.target) {
-                if (isPracticeMode && !checkedQuestions[currentQ.id]) { 
-                    handleCheckQuestion(currentQ.id, e.target.value); 
-                } else {
-                    if (currentQuestionIndex < questions.length - 1) handleNextQuestion();
-                    else handleSubmit();
-                }
-                return;
-            }
-
-            if (isPracticeMode && !checkedQuestions[currentQ.id]) { 
-                handleCheckQuestion(currentQ.id); 
-            } else {
-                if (currentQuestionIndex < questions.length - 1) handleNextQuestion();
-                else handleSubmit();
-            }
-            return;
-        }
-
-        if (isTyping) return;
-
+        if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+        const currentQ = questions[currentQuestionIndex]; if (!currentQ) return;
         if (e.key === 'ArrowRight') handleNextQuestion();
         if (e.key === 'ArrowLeft') handlePrevQuestion();
-        
+        if (e.key === 'Enter') {
+            if (isPracticeMode && !checkedQuestions[currentQ.id]) { handleCheckQuestion(currentQ.id); }
+            return;
+        }
         if (['1', '2', '3', '4'].includes(e.key) && currentQ.type === 'single') {
             const idx = parseInt(e.key) - 1;
             if (currentQ.options[idx]) { handleAnswerChange(currentQ.id, currentQ.options[idx].key, 'single'); }
         }
     };
-    
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [screen, currentQuestionIndex, questions, isPracticeMode, checkedQuestions, checkError, userAnswers]);
+  }, [screen, currentQuestionIndex, questions, isPracticeMode, checkedQuestions, checkError]);
 
   const currentQ = questions[currentQuestionIndex];
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>;
 
+  // --- XÁC ĐỊNH CHẾ ĐỘ MÀU ---
   const isExamMode = screen === 'exam' || screen === 'result';
   const containerClass = isExamMode 
     ? "min-h-screen font-sans text-gray-100 bg-[#09090b] selection:bg-cyan-500 selection:text-white"
@@ -495,7 +452,7 @@ export default function App() {
   return (
     <div className={containerClass}>
       
-      {/* HEADER */}
+      {/* --- HEADER --- */}
       <header className={headerClass}>
         <div className="flex items-center gap-4">
             {screen === 'exam' ? (
@@ -535,10 +492,10 @@ export default function App() {
         </div>
       </header>
 
-      {/* MAIN CONTENT */}
+      {/* --- MAIN CONTENT --- */}
       <main className="pt-24 pb-32 px-4 h-screen overflow-y-auto no-scrollbar">
         
-        {/* UPLOAD */}
+        {/* --- UPLOAD SCREEN --- */}
         {screen === 'upload' && !isGuestMode && (
           <div className="flex flex-col items-center justify-center min-h-[80vh] animate-fade-in-up">
              <div className="w-full max-w-lg bg-white p-8 rounded-3xl shadow-xl border border-gray-100 text-center">
@@ -558,9 +515,9 @@ export default function App() {
           </div>
         )}
 
-        {/* EDIT SCREEN */}
+        {/* --- EDIT SCREEN (CHỦ ĐỀ) --- */}
         {screen === 'edit' && !isGuestMode && (
-          <div className="flex flex-col lg:flex-row gap-6 max-w-6xl mx-auto">
+          <div className="flex flex-col lg:flex-row gap-6">
              <div className="flex-1 bg-white rounded-2xl shadow-sm p-4 sm:p-6 border border-gray-100">
                <div className="flex justify-between items-center mb-4 pb-4 border-b">
                  <h2 className="text-lg font-bold text-gray-800 flex gap-2"><Edit3 size={20} className="text-indigo-500"/> Duyệt Đề</h2>
@@ -616,7 +573,7 @@ export default function App() {
           </div>
         )}
 
-        {/* LOBBY KHÁCH */}
+        {/* --- SẢNH CHỜ CHO KHÁCH (GUEST LOBBY) --- */}
         {screen === 'edit' && isGuestMode && (
             <div className="flex flex-col items-center justify-center min-h-[80vh] animate-fade-in-up">
                 <div className="bg-[#18181b] p-8 rounded-3xl border border-white/10 shadow-2xl text-center max-w-md w-full relative overflow-hidden group">
@@ -639,7 +596,7 @@ export default function App() {
             </div>
         )}
 
-        {/* EXAM SCREEN */}
+        {/* --- EXAM SCREEN --- */}
         {screen === 'exam' && currentQ && (
             <div className="max-w-2xl mx-auto relative mt-4">
                 {showQuestionGrid && (
@@ -777,7 +734,7 @@ export default function App() {
             </div>
         )}
 
-        {/* RESULT SCREEN */}
+        {/* --- RESULT SCREEN --- */}
         {screen === 'result' && scoreData && (
             <div className="max-w-lg mx-auto bg-slate-800/60 backdrop-blur-xl p-10 rounded-[3rem] border border-white/10 text-center mt-10 shadow-[0_0_60px_rgba(124,58,237,0.3)] relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none"></div>
@@ -801,7 +758,7 @@ export default function App() {
         )}
       </main>
 
-      {/* FOOTER */}
+      {/* --- FOOTER --- */}
       {screen === 'exam' && (
           <div className="fixed bottom-8 left-0 right-0 flex justify-center z-50 pointer-events-none">
               <div className="pointer-events-auto bg-[#18181b]/90 backdrop-blur-2xl border border-white/10 rounded-full p-2 flex items-center gap-4 shadow-[0_20px_50px_rgba(0,0,0,0.8)] ring-1 ring-white/5">
