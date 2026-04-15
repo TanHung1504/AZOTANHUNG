@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 
 // --- CẤU HÌNH CLOUD ---
-const API_KEY = "$2a$10$tOyT0UNKFkcFeooS6chjaukrx0vQeDrXvIa6hlqkCBz3.kz0VgrGa"; 
+const API_KEY = "$2a$10$aaFVzK7xD//Umh7WqUTZe.wMOz9zV4ShbJGU7rLC8qY8MugTVeDXO"; 
 const BIN_URL = "https://api.jsonbin.io/v3/b";
 
 // --- SOUND ASSETS ---
@@ -282,9 +282,11 @@ export default function App() {
     alert("Đã cập nhật đáp án!");
   };
 
-  const handleCheckQuestion = (qId) => {
+  const handleCheckQuestion = (qId, overrideAns = undefined) => {
       const q = questions.find(item => item.id === qId);
-      const uAns = userAnswers[qId];
+      
+      // Lấy đáp án mới nhất (Ưu tiên lấy trực tiếp từ màn hình nếu đang gõ phím)
+      const uAns = overrideAns !== undefined ? overrideAns : userAnswers[qId];
       let isCorrect = false;
 
       if (q.type === 'single') {
@@ -418,22 +420,49 @@ export default function App() {
   useEffect(() => {
     const handleKeyDown = (e) => {
         if (screen !== 'exam') return;
-        if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
-        const currentQ = questions[currentQuestionIndex]; if (!currentQ) return;
-        if (e.key === 'ArrowRight') handleNextQuestion();
-        if (e.key === 'ArrowLeft') handlePrevQuestion();
+        
+        const currentQ = questions[currentQuestionIndex]; 
+        if (!currentQ) return;
+
+        const isTyping = ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+
+        // Xử lý phím Enter 
         if (e.key === 'Enter') {
-            if (isPracticeMode && !checkedQuestions[currentQ.id]) { handleCheckQuestion(currentQ.id); }
+            e.preventDefault(); 
+            
+            // Nếu đang gõ, lấy chữ mới nhất trực tiếp từ ô input (Tuyệt chiêu chống delay)
+            let latestAns = undefined;
+            if (isTyping && e.target) {
+                latestAns = e.target.value;
+            }
+
+            if (isPracticeMode && !checkedQuestions[currentQ.id]) { 
+                handleCheckQuestion(currentQ.id, latestAns); 
+            } else {
+                if (currentQuestionIndex < questions.length - 1) {
+                    handleNextQuestion();
+                } else {
+                    handleSubmit();
+                }
+            }
             return;
         }
+
+        // Nếu đang gõ chữ thì chặn các phím tắt khác để không bị nhảy câu lung tung
+        if (isTyping) return;
+
+        if (e.key === 'ArrowRight') handleNextQuestion();
+        if (e.key === 'ArrowLeft') handlePrevQuestion();
+        
         if (['1', '2', '3', '4'].includes(e.key) && currentQ.type === 'single') {
             const idx = parseInt(e.key) - 1;
             if (currentQ.options[idx]) { handleAnswerChange(currentQ.id, currentQ.options[idx].key, 'single'); }
         }
     };
+    
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [screen, currentQuestionIndex, questions, isPracticeMode, checkedQuestions, checkError]);
+  }, [screen, currentQuestionIndex, questions, isPracticeMode, checkedQuestions, checkError, userAnswers]);
 
   const currentQ = questions[currentQuestionIndex];
 
