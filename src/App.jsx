@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import mammoth from 'mammoth';
+import confetti from 'canvas-confetti';
 import { 
   Upload, Clock, CheckCircle2, XCircle, FileText, Play, RotateCcw, 
   Eye, ToggleLeft, ToggleRight, Edit3, Save, ArrowRight, 
@@ -79,6 +80,20 @@ export default function App() {
       audio.play().catch(e => console.log("Audio play error:", e));
   };
 
+  const triggerConfetti = () => {
+      var duration = 3 * 1000;
+      var animationEnd = Date.now() + duration;
+      var defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+      var random = function(min, max) { return Math.random() * (max - min) + min; };
+      var interval = setInterval(function() {
+        var timeLeft = animationEnd - Date.now();
+        if (timeLeft <= 0) { return clearInterval(interval); }
+        var particleCount = 50 * (timeLeft / duration);
+        confetti(Object.assign({}, defaults, { particleCount, origin: { x: random(0.1, 0.3), y: Math.random() - 0.2 } }));
+        confetti(Object.assign({}, defaults, { particleCount, origin: { x: random(0.7, 0.9), y: Math.random() - 0.2 } }));
+      }, 250);
+  };
+
   // --- LOGIC PWA INSTALL ---
   useEffect(() => {
     const handler = (e) => {
@@ -98,7 +113,6 @@ export default function App() {
     }
   };
 
-  // Auto scroll footer
   useEffect(() => {
       if (scrollRef.current) {
           const activeBtn = scrollRef.current.querySelector('.active-q-btn');
@@ -185,14 +199,12 @@ export default function App() {
   const handleCreateShareLink = async () => {
       if(API_KEY.length < 10) return alert("Chưa nhập API Key!");
       
-      // Tính toán thử dung lượng file gửi đi (để cảnh báo)
       const examData = { name: examName, qs: questions };
       const payloadSize = JSON.stringify(examData).length;
       
-      // Nếu dung lượng vượt quá 100KB (giới hạn của JSONBin free)
       if (payloadSize > 100000) {
           alert(`CẢNH BÁO: Đề thi của bạn quá nặng (${Math.round(payloadSize/1024)} KB) do chứa nhiều hình ảnh.\nMáy chủ miễn phí chỉ nhận tối đa 100KB.\n\nHãy thử: Xóa bớt ảnh trong file Word hoặc làm một file Word CHỈ CÓ CHỮ để test thử nhé!`);
-          return; // Dừng lại không gửi nữa
+          return; 
       }
 
       setIsLoading(true);
@@ -210,19 +222,17 @@ export default function App() {
 
           const data = await response.json();
 
-          // Nếu máy chủ báo lỗi (VD: Sai API Key, hết lượt)
           if (!response.ok) {
               throw new Error(data.message || "Từ chối truy cập từ máy chủ.");
           }
 
-          // Nếu thành công
           let url = `${window.location.origin}${window.location.pathname}?id=${data.metadata.id}`;
           if (shareAsPractice) url += "&mode=practice";
           setShareLink(url);
           
       } catch (error) {
           console.error("Lỗi chi tiết:", error);
-          alert(`Tạo link thất bại!\nNguyên nhân: ${error.message}\n\n👉 Mẹo: Hãy kiểm tra lại API Key xem đã thay đúng của bạn chưa nhé!`);
+          alert(`Tạo link thất bại!\nNguyên nhân: ${error.message}`);
       } finally {
           setIsLoading(false);
       }
@@ -282,9 +292,9 @@ export default function App() {
     alert("Đã cập nhật đáp án!");
   };
 
-  const handleCheckQuestion = (qId) => {
+  const handleCheckQuestion = (qId, overrideAns = undefined) => {
       const q = questions.find(item => item.id === qId);
-      const uAns = userAnswers[qId];
+      const uAns = overrideAns !== undefined ? overrideAns : userAnswers[qId];
       let isCorrect = false;
 
       if (q.type === 'single') {
@@ -307,6 +317,10 @@ export default function App() {
       } else {
           playSound('error');
           setCheckError(qId);
+      }
+      
+      if (overrideAns !== undefined) {
+          setUserAnswers(prev => ({ ...prev, [qId]: overrideAns }));
       }
   };
 
@@ -397,8 +411,10 @@ export default function App() {
           else { const currentGroup = prev[qId] || {}; return { ...prev, [qId]: { ...currentGroup, [subKey]: val } }; } 
       }); 
   };
+  
   const handleSubmit = () => { 
       playSound('finish');
+      triggerConfetti();
       clearInterval(timerRef.current); 
       calculateScore(); 
       setScreen('result'); 
@@ -418,28 +434,53 @@ export default function App() {
   useEffect(() => {
     const handleKeyDown = (e) => {
         if (screen !== 'exam') return;
-        if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
-        const currentQ = questions[currentQuestionIndex]; if (!currentQ) return;
-        if (e.key === 'ArrowRight') handleNextQuestion();
-        if (e.key === 'ArrowLeft') handlePrevQuestion();
+        
+        const currentQ = questions[currentQuestionIndex]; 
+        if (!currentQ) return;
+
+        const isTyping = ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+
         if (e.key === 'Enter') {
-            if (isPracticeMode && !checkedQuestions[currentQ.id]) { handleCheckQuestion(currentQ.id); }
+            e.preventDefault(); 
+            
+            if (isTyping && e.target) {
+                if (isPracticeMode && !checkedQuestions[currentQ.id]) { 
+                    handleCheckQuestion(currentQ.id, e.target.value); 
+                } else {
+                    if (currentQuestionIndex < questions.length - 1) handleNextQuestion();
+                    else handleSubmit();
+                }
+                return;
+            }
+
+            if (isPracticeMode && !checkedQuestions[currentQ.id]) { 
+                handleCheckQuestion(currentQ.id); 
+            } else {
+                if (currentQuestionIndex < questions.length - 1) handleNextQuestion();
+                else handleSubmit();
+            }
             return;
         }
+
+        if (isTyping) return;
+
+        if (e.key === 'ArrowRight') handleNextQuestion();
+        if (e.key === 'ArrowLeft') handlePrevQuestion();
+        
         if (['1', '2', '3', '4'].includes(e.key) && currentQ.type === 'single') {
             const idx = parseInt(e.key) - 1;
             if (currentQ.options[idx]) { handleAnswerChange(currentQ.id, currentQ.options[idx].key, 'single'); }
         }
     };
+    
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [screen, currentQuestionIndex, questions, isPracticeMode, checkedQuestions, checkError]);
+  }, [screen, currentQuestionIndex, questions, isPracticeMode, checkedQuestions, checkError, userAnswers]);
 
   const currentQ = questions[currentQuestionIndex];
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>;
 
-  // --- XÁC ĐỊNH CHẾ ĐỘ MÀU ---
   const isExamMode = screen === 'exam' || screen === 'result';
   const containerClass = isExamMode 
     ? "min-h-screen font-sans text-gray-100 bg-[#09090b] selection:bg-cyan-500 selection:text-white"
@@ -452,7 +493,7 @@ export default function App() {
   return (
     <div className={containerClass}>
       
-      {/* --- HEADER --- */}
+      {/* HEADER */}
       <header className={headerClass}>
         <div className="flex items-center gap-4">
             {screen === 'exam' ? (
@@ -479,7 +520,7 @@ export default function App() {
                     <button onClick={() => setIsMuted(!isMuted)} className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all border border-white/5">
                         {isMuted ? <VolumeX size={18}/> : <Volume2 size={18}/>}
                     </button>
-                    <div className="flex items-center gap-2 text-cyan-300 bg-cyan-950/30 px-3 py-1.5 rounded-full border border-cyan-500/20 shadow-[0_0_10px_rgba(6,182,212,0.1)]">
+                    <div className="flex items-center gap-2 text-cyan-300 bg-cyan-950/40 px-3 py-1.5 rounded-full border border-cyan-500/20 shadow-[0_0_10px_rgba(6,182,212,0.1)]">
                         <Clock size={16}/>
                         <span className="font-mono font-bold">{isPracticeMode ? "∞" : formatTime(timeLeft)}</span>
                     </div>
@@ -488,16 +529,16 @@ export default function App() {
                     </button>
                 </>
             )}
-            {!isGuestMode && screen !== 'exam' && screen !== 'upload' && (<button onClick={() => setScreen('upload')} className="text-gray-500 font-bold text-sm">Trang chủ</button>)}
+            {!isGuestMode && screen !== 'exam' && screen !== 'upload' && (<button onClick={() => setScreen('upload')} className="text-gray-500 font-bold text-sm hover:text-blue-600">Trang chủ</button>)}
         </div>
       </header>
 
-      {/* --- MAIN CONTENT --- */}
+      {/* MAIN CONTENT */}
       <main className="pt-24 pb-32 px-4 h-screen overflow-y-auto no-scrollbar">
         
-        {/* --- UPLOAD SCREEN --- */}
+        {/* UPLOAD */}
         {screen === 'upload' && !isGuestMode && (
-          <div className="flex flex-col items-center justify-center min-h-[80vh] animate-fade-in-up">
+          <div className="flex flex-col items-center justify-center min-h-[70vh] animate-fade-in-up">
              <div className="w-full max-w-lg bg-white p-8 rounded-3xl shadow-xl border border-gray-100 text-center">
                 <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-6 text-indigo-600"><Upload size={40} /></div>
                 <h2 className="text-2xl font-black text-gray-900 mb-2">Tạo & Chia Sẻ Đề</h2>
@@ -515,9 +556,9 @@ export default function App() {
           </div>
         )}
 
-        {/* --- EDIT SCREEN (CHỦ ĐỀ) --- */}
+        {/* EDIT SCREEN */}
         {screen === 'edit' && !isGuestMode && (
-          <div className="flex flex-col lg:flex-row gap-6">
+          <div className="flex flex-col lg:flex-row gap-6 max-w-6xl mx-auto">
              <div className="flex-1 bg-white rounded-2xl shadow-sm p-4 sm:p-6 border border-gray-100">
                <div className="flex justify-between items-center mb-4 pb-4 border-b">
                  <h2 className="text-lg font-bold text-gray-800 flex gap-2"><Edit3 size={20} className="text-indigo-500"/> Duyệt Đề</h2>
@@ -573,7 +614,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- SẢNH CHỜ CHO KHÁCH (GUEST LOBBY) --- */}
+        {/* LOBBY KHÁCH */}
         {screen === 'edit' && isGuestMode && (
             <div className="flex flex-col items-center justify-center min-h-[80vh] animate-fade-in-up">
                 <div className="bg-[#18181b] p-8 rounded-3xl border border-white/10 shadow-2xl text-center max-w-md w-full relative overflow-hidden group">
@@ -596,7 +637,7 @@ export default function App() {
             </div>
         )}
 
-        {/* --- EXAM SCREEN --- */}
+        {/* EXAM SCREEN */}
         {screen === 'exam' && currentQ && (
             <div className="max-w-2xl mx-auto relative mt-4">
                 {showQuestionGrid && (
@@ -734,31 +775,115 @@ export default function App() {
             </div>
         )}
 
-        {/* --- RESULT SCREEN --- */}
+        {/* --- RESULT SCREEN (ĐÃ THÊM BẢNG ĐÁP ÁN CHI TIẾT) --- */}
         {screen === 'result' && scoreData && (
-            <div className="max-w-lg mx-auto bg-slate-800/60 backdrop-blur-xl p-10 rounded-[3rem] border border-white/10 text-center mt-10 shadow-[0_0_60px_rgba(124,58,237,0.3)] relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none"></div>
-                <div className="w-24 h-24 bg-gradient-to-tr from-yellow-400 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(234,179,8,0.6)] ring-4 ring-yellow-500/20">
-                    <Trophy size={48} className="text-white fill-white/20"/>
-                </div>
-                <h2 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 mb-2 tracking-tighter">{scoreData.score}</h2>
-                <p className="text-indigo-300 mb-8 uppercase tracking-[0.3em] text-xs font-bold">Điểm Số Của Bạn</p>
-                <div className="grid grid-cols-2 gap-4 mb-8">
-                    <div className="bg-green-500/10 p-5 rounded-2xl border border-green-500/20 text-green-400 font-bold flex flex-col items-center">
-                        <span className="text-3xl">{scoreData.correctCount}</span>
-                        <span className="text-[10px] uppercase opacity-60 tracking-wider mt-1">Chính xác</span>
+            <div className="max-w-3xl mx-auto mt-10 pb-24 space-y-8 animate-fade-in-up">
+                
+                {/* Bảng Điểm */}
+                <div className="bg-slate-800/60 backdrop-blur-xl p-10 rounded-[3rem] border border-white/10 text-center shadow-[0_0_60px_rgba(124,58,237,0.3)] relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none"></div>
+                    <div className="w-24 h-24 bg-gradient-to-tr from-yellow-400 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(234,179,8,0.6)] ring-4 ring-yellow-500/20">
+                        <Trophy size={48} className="text-white fill-white/20"/>
                     </div>
-                    <div className="bg-red-500/10 p-5 rounded-2xl border border-red-500/20 text-red-400 font-bold flex flex-col items-center">
-                        <span className="text-3xl">{scoreData.total - scoreData.correctCount}</span>
-                        <span className="text-[10px] uppercase opacity-60 tracking-wider mt-1">Chưa đúng</span>
+                    <h2 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 mb-2 tracking-tighter">{scoreData.score}</h2>
+                    <p className="text-indigo-300 mb-8 uppercase tracking-[0.3em] text-xs font-bold">Điểm Số Của Bạn</p>
+                    <div className="grid grid-cols-2 gap-4 mb-8">
+                        <div className="bg-green-500/10 p-5 rounded-2xl border border-green-500/20 text-green-400 font-bold flex flex-col items-center">
+                            <span className="text-3xl">{scoreData.correctCount}</span>
+                            <span className="text-[10px] uppercase opacity-60 tracking-wider mt-1">Chính xác</span>
+                        </div>
+                        <div className="bg-red-500/10 p-5 rounded-2xl border border-red-500/20 text-red-400 font-bold flex flex-col items-center">
+                            <span className="text-3xl">{scoreData.total - scoreData.correctCount}</span>
+                            <span className="text-[10px] uppercase opacity-60 tracking-wider mt-1">Chưa đúng</span>
+                        </div>
+                    </div>
+                    <button onClick={() => startExamFinal(questions, false)} className="w-full bg-white text-black py-4 rounded-2xl font-black hover:scale-105 hover:shadow-[0_0_30px_rgba(255,255,255,0.4)] transition-all">THỬ LẠI NGAY</button>
+                </div>
+
+                {/* Bảng Chi Tiết Đáp Án Mới Thêm */}
+                <div className="bg-[#18181b]/60 backdrop-blur-xl p-6 sm:p-8 rounded-[2rem] border border-white/10 shadow-2xl">
+                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                        <List className="text-cyan-400" /> Chi Tiết Đáp Án
+                    </h3>
+                    <div className="space-y-4">
+                        {questions.map((q, idx) => {
+                            const uAns = userAnswers[q.id];
+                            
+                            if (q.type === 'single' || q.type === 'text') {
+                                let isCorrect = false;
+                                let correctStr = "";
+                                let userStr = "";
+
+                                if (q.type === 'single') {
+                                    const correctOpt = q.options.find(o => o.isCorrect);
+                                    isCorrect = correctOpt && uAns === correctOpt.key;
+                                    correctStr = correctOpt ? correctOpt.key : "Chưa cấu hình";
+                                    userStr = uAns || "--";
+                                } else if (q.type === 'text') {
+                                    isCorrect = checkAnswerMatch(uAns, q.correctAnswer);
+                                    correctStr = q.correctAnswer || "Chưa cấu hình";
+                                    userStr = uAns || "--";
+                                }
+
+                                return (
+                                    <div key={q.id} className={`p-4 rounded-2xl border ${isCorrect ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'} flex flex-col sm:flex-row gap-4 justify-between sm:items-center`}>
+                                        <div className="font-bold text-gray-200 flex items-center gap-2">
+                                            {isCorrect ? <CheckCircle2 className="text-emerald-400" size={20}/> : <XCircle className="text-red-400" size={20}/>}
+                                            Câu {idx + 1}
+                                        </div>
+                                        <div className="flex gap-2 text-sm w-full sm:w-auto">
+                                            <div className="flex-1 sm:flex-none bg-black/40 px-4 py-2 rounded-xl text-center border border-white/5">
+                                                <div className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Bạn chọn</div>
+                                                <div className={`font-black ${isCorrect ? 'text-emerald-400' : 'text-red-400'}`}>{userStr}</div>
+                                            </div>
+                                            <div className="flex-1 sm:flex-none bg-black/40 px-4 py-2 rounded-xl text-center border border-white/5">
+                                                <div className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Đáp án</div>
+                                                <div className="font-black text-cyan-400">{correctStr}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            if (q.type === 'group') {
+                                 return (
+                                     <div key={q.id} className="p-5 rounded-2xl border border-white/10 bg-white/5 flex flex-col gap-3">
+                                        <div className="font-bold text-gray-200">Câu {idx + 1} (Đúng/Sai)</div>
+                                        <div className="grid grid-cols-1 gap-2">
+                                            {q.options.map(opt => {
+                                                const myChoice = uAns ? uAns[opt.key] : undefined;
+                                                const correctChoice = opt.isCorrect;
+                                                const subCorrect = myChoice === correctChoice;
+                                                
+                                                return (
+                                                    <div key={opt.key} className={`flex items-center justify-between p-3 rounded-xl bg-black/20 border ${subCorrect ? 'border-emerald-500/20' : 'border-red-500/20'}`}>
+                                                        <span className="text-gray-300 text-sm pr-4"><span className="font-bold text-cyan-400">{opt.key}.</span> {opt.text}</span>
+                                                        <div className="flex gap-2 text-xs shrink-0">
+                                                            <div className="bg-black/40 px-2 py-1 rounded text-center border border-white/5">
+                                                                <span className="text-gray-500 text-[9px] uppercase block">Bạn</span>
+                                                                <span className={`font-bold ${subCorrect ? 'text-emerald-400' : 'text-red-400'}`}>{myChoice === true ? 'ĐÚNG' : myChoice === false ? 'SAI' : '--'}</span>
+                                                            </div>
+                                                            <div className="bg-black/40 px-2 py-1 rounded text-center border border-white/5">
+                                                                <span className="text-gray-500 text-[9px] uppercase block">Gốc</span>
+                                                                <span className="font-bold text-cyan-400">{correctChoice === true ? 'ĐÚNG' : 'SAI'}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                 );
+                            }
+                            return null;
+                        })}
                     </div>
                 </div>
-                <button onClick={() => startExamFinal(questions, false)} className="w-full bg-white text-black py-4 rounded-2xl font-black hover:scale-105 hover:shadow-[0_0_30px_rgba(255,255,255,0.4)] transition-all">THỬ LẠI NGAY</button>
             </div>
         )}
       </main>
 
-      {/* --- FOOTER --- */}
+      {/* FOOTER */}
       {screen === 'exam' && (
           <div className="fixed bottom-8 left-0 right-0 flex justify-center z-50 pointer-events-none">
               <div className="pointer-events-auto bg-[#18181b]/90 backdrop-blur-2xl border border-white/10 rounded-full p-2 flex items-center gap-4 shadow-[0_20px_50px_rgba(0,0,0,0.8)] ring-1 ring-white/5">
