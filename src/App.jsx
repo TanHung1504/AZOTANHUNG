@@ -312,7 +312,6 @@ export default function App() {
     reader.readAsArrayBuffer(file);
   };
 
-  // --- THUẬT TOÁN ĐỌC FILE WORD MỚI ---
   const parseHtmlToQuestions = (htmlString) => {
     const parser = new DOMParser(); 
     const doc = parser.parseFromString(htmlString, 'text/html');
@@ -322,7 +321,6 @@ export default function App() {
     const strongQuestionRegex = /^Câu\s+\d+[:\.]/i; 
     const weakQuestionRegex = /^\d+[:\.]/i;       
     const shortAnswerRegex = /^(Đáp án|HD|Lời giải|Answer)[:\.]\s*(.+)/i;
-    // Bỏ qua chữ thường a.b.c.d, chỉ xét từ khóa đặc biệt
     const groupKeywords = /đúng hay sai|các nhận định|các mệnh đề/i;
 
     paragraphs.forEach((p) => {
@@ -338,7 +336,6 @@ export default function App() {
       const isStrongStart = text.match(strongQuestionRegex); 
       const isWeakStart = text.match(weakQuestionRegex);
       
-      // Bắt cả A,B,C,D và a,b,c,d
       const optMatch = text.match(/^([a-dA-D])[\.\)\/]\s*(.*)/);
 
       let isNewQuestion = false;
@@ -351,8 +348,8 @@ export default function App() {
       if (isNewQuestion) {
         if (currentQuestion) parsedQuestions.push(currentQuestion);
         
-        let qType = 'single'; // Mặc định tất cả là Trắc nghiệm 1 đáp án
-        if (groupKeywords.test(text)) qType = 'group'; // Chỉ đổi khi có từ khóa rõ ràng
+        let qType = 'single';
+        if (groupKeywords.test(text)) qType = 'group';
 
         currentQuestion = { id: parsedQuestions.length + 1, question: text || htmlContent, type: qType, options: [], correctAnswer: "" };
         return; 
@@ -364,7 +361,6 @@ export default function App() {
       if (shortMatch) { currentQuestion.type = 'text'; currentQuestion.correctAnswer = shortMatch[2].trim(); currentQuestion.options = []; return; }
       
       if (optMatch) {
-          // Bất kể giáo viên gõ a. hay A., đều ép thành chữ HOA (A, B, C, D)
           const letter = optMatch[1].toUpperCase(); 
           
           let cleanHtml = htmlContent;
@@ -417,6 +413,7 @@ export default function App() {
       triggerConfetti();
       clearInterval(timerRef.current); 
       calculateScore(); 
+      window.scrollTo(0, 0); // Tự cuộn lên đầu xem kết quả
       setScreen('result'); 
   };
   
@@ -531,7 +528,6 @@ export default function App() {
                <div className="space-y-6">
                  {questions.map((q, idx) => (
                    <div key={q.id} className="border rounded-xl p-4 hover:border-indigo-300 transition-colors">
-                      {/* --- THÊM NÚT ĐỔI DẠNG CÂU HỎI Ở ĐÂY --- */}
                       <div className="flex justify-between items-start mb-3">
                           <div className="font-bold text-gray-800 flex gap-2">
                              <span className="text-indigo-600 shrink-0">Câu {idx + 1}:</span>
@@ -663,8 +659,11 @@ export default function App() {
             </div>
         )}
 
+        {/* --- MÀN HÌNH KẾT QUẢ & CHI TIẾT ĐÁP ÁN (ĐÃ NÂNG CẤP) --- */}
         {screen === 'result' && scoreData && (
-            <div className="max-w-3xl mx-auto mt-10 pb-24 space-y-8 animate-fade-in-up">
+            <div className="max-w-4xl mx-auto mt-10 pb-24 space-y-8 animate-fade-in-up">
+                
+                {/* Bảng điểm */}
                 <div className="bg-slate-800/60 backdrop-blur-xl p-10 rounded-[3rem] border border-white/10 text-center shadow-[0_0_60px_rgba(124,58,237,0.3)] relative overflow-hidden">
                     <div className="w-24 h-24 bg-gradient-to-tr from-yellow-400 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(234,179,8,0.6)]"><Trophy size={48} className="text-white fill-white/20"/></div>
                     <h2 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 mb-2 tracking-tighter">{scoreData.score}</h2>
@@ -675,23 +674,94 @@ export default function App() {
                     </div>
                     <button onClick={() => startExamFinal(questions, false)} className="w-full bg-white text-black py-4 rounded-2xl font-black hover:scale-105 transition-all">THỬ LẠI NGAY</button>
                 </div>
+
+                {/* Bảng Chi Tiết Từng Câu Hỏi */}
                 <div className="bg-[#18181b]/60 backdrop-blur-xl p-6 sm:p-8 rounded-[2rem] border border-white/10 shadow-2xl">
-                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><List className="text-cyan-400" /> Chi Tiết Đáp Án</h3>
-                    <div className="space-y-4">
+                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><List className="text-cyan-400" /> Chi Tiết Từng Câu Hỏi</h3>
+                    <div className="space-y-6">
                         {questions.map((q, idx) => {
                             const uAns = userAnswers[q.id];
+                            
+                            // Giao diện khung chứa nội dung câu hỏi
+                            const questionContent = <div className="text-gray-300 font-medium mb-4 text-base leading-relaxed bg-black/20 p-4 rounded-xl border border-white/5 [&>img]:rounded-lg [&>img]:my-2 [&>img]:shadow-md" dangerouslySetInnerHTML={{ __html: q.question?.replace(/^(Câu)?\s*\d+[\.:]\s*/i, '') || '' }} />;
+
                             if (q.type === 'single' || q.type === 'text') {
-                                let isCorrect = q.type === 'single' ? (q.options?.find(o => o.isCorrect)?.key === uAns) : checkAnswerMatch(uAns, q.correctAnswer);
-                                let correctStr = q.type === 'single' ? (q.options?.find(o => o.isCorrect)?.key) : q.correctAnswer;
-                                return <div key={q.id} className={`p-4 rounded-2xl border ${isCorrect ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'} flex flex-col sm:flex-row gap-4 justify-between sm:items-center`}><div className="font-bold text-gray-200 flex items-center gap-2">{isCorrect ? <CheckCircle2 className="text-emerald-400" size={20}/> : <XCircle className="text-red-400" size={20}/>}Câu {idx + 1}</div><div className="flex gap-2 text-sm w-full sm:w-auto"><div className="flex-1 sm:flex-none bg-black/40 px-4 py-2 rounded-xl text-center border border-white/5"><div className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Bạn chọn</div><div className={`font-black ${isCorrect ? 'text-emerald-400' : 'text-red-400'}`}>{uAns || "--"}</div></div><div className="flex-1 sm:flex-none bg-black/40 px-4 py-2 rounded-xl text-center border border-white/5"><div className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Đáp án</div><div className="font-black text-cyan-400">{correctStr}</div></div></div></div>
+                                let isCorrect = false;
+                                let correctStr = "";
+                                let userStr = "";
+
+                                if (q.type === 'single') {
+                                    const correctOpt = q.options?.find(o => o.isCorrect);
+                                    isCorrect = (correctOpt?.key === uAns);
+                                    
+                                    correctStr = correctOpt ? `<span class="text-cyan-400 font-black mr-2">${correctOpt.key}.</span> ${correctOpt.text}` : "Chưa cấu hình đáp án";
+                                    
+                                    const userOpt = q.options?.find(o => o.key === uAns);
+                                    userStr = userOpt ? `<span class="${isCorrect ? 'text-emerald-400' : 'text-red-400'} font-black mr-2">${userOpt.key}.</span> ${userOpt.text}` : (uAns || "Trống");
+                                } else {
+                                    isCorrect = checkAnswerMatch(uAns, q.correctAnswer);
+                                    correctStr = q.correctAnswer || "Chưa cấu hình";
+                                    userStr = uAns || "Trống";
+                                }
+
+                                return (
+                                    <div key={q.id} className={`p-5 rounded-2xl border ${isCorrect ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'} flex flex-col gap-2`}>
+                                        <div className="font-bold text-gray-200 flex items-center gap-2 border-b border-white/5 pb-3 mb-2">
+                                            {isCorrect ? <CheckCircle2 className="text-emerald-400" size={20}/> : <XCircle className="text-red-400" size={20}/>}
+                                            Câu {idx + 1} {isCorrect ? <span className="text-xs text-emerald-400 font-normal ml-2">(Đúng)</span> : <span className="text-xs text-red-400 font-normal ml-2">(Sai)</span>}
+                                        </div>
+                                        
+                                        {questionContent}
+                                        
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                                            <div className="bg-black/40 p-4 rounded-xl border border-white/5">
+                                                <div className="text-[10px] text-gray-500 uppercase tracking-widest mb-2">ĐÁP ÁN BẠN CHỌN:</div>
+                                                <div className={`text-sm text-gray-300`} dangerouslySetInnerHTML={{ __html: userStr }} />
+                                            </div>
+                                            <div className="bg-black/40 p-4 rounded-xl border border-white/5">
+                                                <div className="text-[10px] text-gray-500 uppercase tracking-widest mb-2">ĐÁP ÁN ĐÚNG CỦA HỆ THỐNG:</div>
+                                                <div className="text-sm text-gray-300" dangerouslySetInnerHTML={{ __html: correctStr }} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
                             }
+
                             if (q.type === 'group') {
-                                return <div key={q.id} className="p-5 rounded-2xl border border-white/10 bg-white/5 flex flex-col gap-3"><div className="font-bold text-gray-200">Câu {idx + 1} (Đúng/Sai)</div><div className="grid grid-cols-1 gap-2">
-                                    {q.options?.map(opt => {
-                                        const myChoice = uAns ? uAns[opt.key] : undefined, subCorrect = myChoice === opt.isCorrect;
-                                        return <div key={opt.key} className={`flex items-center justify-between p-3 rounded-xl bg-black/20 border ${subCorrect ? 'border-emerald-500/20' : 'border-red-500/20'}`}><span className="text-gray-300 text-sm pr-4"><span className="font-bold text-cyan-400">{opt.key}.</span> {opt.text}</span><div className="flex gap-2 text-xs shrink-0"><div className="bg-black/40 px-2 py-1 rounded text-center border border-white/5"><span className="text-gray-500 text-[9px] uppercase block">Bạn</span><span className={`font-bold ${subCorrect ? 'text-emerald-400' : 'text-red-400'}`}>{myChoice === true ? 'ĐÚNG' : myChoice === false ? 'SAI' : '--'}</span></div><div className="bg-black/40 px-2 py-1 rounded text-center border border-white/5"><span className="text-gray-500 text-[9px] uppercase block">Gốc</span><span className="font-bold text-cyan-400">{opt.isCorrect ? 'ĐÚNG' : 'SAI'}</span></div></div></div>
-                                    })}
-                                </div></div>
+                                return (
+                                    <div key={q.id} className="p-5 rounded-2xl border border-white/10 bg-white/5 flex flex-col gap-2">
+                                        <div className="font-bold text-gray-200 border-b border-white/5 pb-3 mb-2 flex items-center gap-2">
+                                            <List size={18} className="text-indigo-400"/> Câu {idx + 1} (Trắc nghiệm Đúng/Sai)
+                                        </div>
+                                        
+                                        {questionContent}
+
+                                        <div className="grid grid-cols-1 gap-2 mt-2">
+                                            {q.options?.map(opt => {
+                                                const myChoice = uAns ? uAns[opt.key] : undefined;
+                                                const subCorrect = myChoice === opt.isCorrect;
+                                                return (
+                                                    <div key={opt.key} className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-xl bg-black/20 border ${subCorrect ? 'border-emerald-500/20' : 'border-red-500/20'} gap-4`}>
+                                                        <span className="text-gray-300 text-sm flex-1 flex gap-2">
+                                                            <span className="font-bold text-cyan-400">{opt.key}.</span> 
+                                                            <span dangerouslySetInnerHTML={{ __html: opt.text }}/>
+                                                        </span>
+                                                        <div className="flex gap-2 text-xs shrink-0 w-full sm:w-auto">
+                                                            <div className="flex-1 sm:flex-none bg-black/40 px-4 py-2 rounded-lg text-center border border-white/5">
+                                                                <span className="text-gray-500 text-[9px] uppercase block mb-1">Bạn chọn</span>
+                                                                <span className={`font-black ${subCorrect ? 'text-emerald-400' : 'text-red-400'}`}>{myChoice === true ? 'ĐÚNG' : myChoice === false ? 'SAI' : 'Trống'}</span>
+                                                            </div>
+                                                            <div className="flex-1 sm:flex-none bg-black/40 px-4 py-2 rounded-lg text-center border border-white/5">
+                                                                <span className="text-gray-500 text-[9px] uppercase block mb-1">Đáp án</span>
+                                                                <span className="font-black text-cyan-400">{opt.isCorrect ? 'ĐÚNG' : 'SAI'}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                )
                             }
                             return null;
                         })}
@@ -701,6 +771,7 @@ export default function App() {
         )}
       </main>
 
+      {/* --- FOOTER ĐIỀU HƯỚNG BÀI THI --- */}
       {screen === 'exam' && currentQ && (
           <div className="fixed bottom-8 left-0 right-0 flex justify-center z-50 pointer-events-none">
               <div className="pointer-events-auto bg-[#18181b]/90 backdrop-blur-2xl border border-white/10 rounded-full p-2 flex items-center gap-4 shadow-[0_20px_50px_rgba(0,0,0,0.8)] ring-1 ring-white/5">
