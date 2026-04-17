@@ -55,7 +55,6 @@ export default function App() {
   const [timeLeft, setTimeLeft] = useState(0); 
   const [examName, setExamName] = useState("Bài Thi Trắc Nghiệm");
   const [scoreData, setScoreData] = useState(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [shareLink, setShareLink] = useState(""); 
   const [isLoading, setIsLoading] = useState(false);
@@ -109,8 +108,6 @@ export default function App() {
       }
   }, [currentQuestionIndex]);
 
-  useEffect(() => { if (window.innerWidth > 1024) setIsSidebarOpen(true); }, []);
-
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const binId = params.get('id');
@@ -138,7 +135,7 @@ export default function App() {
 
   const handleCreateShareLink = async () => {
       if (!FIREBASE_URL || FIREBASE_URL.includes("PROJECT_ID")) {
-          return alert("Bạn chưa cập nhật link FIREBASE_URL ở dòng 14!");
+          return alert("Bạn chưa cập nhật link FIREBASE_URL ở dòng 15!");
       }
       setIsLoading(true);
       const examData = { name: examName, qs: questions };
@@ -458,361 +455,417 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [screen, currentQuestionIndex, questions, isPracticeMode, checkedQuestions, checkError, userAnswers]);
 
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>;
-
-  const isExamMode = screen === 'exam' || screen === 'result';
-  const containerClass = isExamMode ? "min-h-screen font-sans text-gray-100 bg-[#09090b] selection:bg-cyan-500 selection:text-white" : "min-h-screen font-sans text-gray-800 bg-[#f3f4f6]";
-  const headerClass = isExamMode ? "fixed top-0 left-0 right-0 z-50 h-16 px-4 flex justify-between items-center backdrop-blur-xl bg-black/40 border-b border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.5)]" : "fixed top-0 left-0 right-0 z-50 h-16 px-4 flex justify-between items-center bg-white border-b border-gray-200 shadow-sm";
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-white"><div className="animate-spin rounded-full h-12 w-12 border-b-4 border-[#1cb0f6]"></div></div>;
 
   const currentQ = questions[currentQuestionIndex];
+  
+  // Tính toán phần trăm thanh tiến độ
+  const progressPercent = questions.length > 0 ? ((currentQuestionIndex + 1) / questions.length) * 100 : 0;
 
   return (
-    <div className={containerClass}>
-      <header className={headerClass}>
+    <div className="min-h-screen bg-white text-[#4b4b4b] flex flex-col font-sans overflow-x-hidden selection:bg-[#ddf4ff] selection:text-[#1cb0f6]">
+      {/* NHÚNG CSS NỘI BỘ CHO GIAO DIỆN HYBRID */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+        * { font-family: 'Nunito', sans-serif; }
+        .btn-duo { transition: all 0.15s ease; }
+        .btn-duo:active { border-bottom-width: 2px !important; transform: translateY(2px); }
+        .custom-scroll::-webkit-scrollbar { width: 8px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #e5e5e5; border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #cecece; }
+      `}</style>
+
+      {/* HEADER ĐIỀU HƯỚNG MỚI */}
+      <header className="h-20 border-b-2 border-[#e5e5e5] flex justify-between items-center px-4 sm:px-8 bg-white z-50 sticky top-0">
         <div className="flex items-center gap-4">
             {screen === 'exam' ? (
-                <button onClick={() => { if(confirm("Thoát bài thi?")) setScreen('upload'); }} className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all border ${isExamMode ? 'text-cyan-400 hover:text-white hover:bg-white/10 border-white/5' : 'text-gray-600 hover:bg-gray-100 border-gray-200'}`}>
-                    <ChevronLeft size={20}/> <span className="hidden sm:inline font-bold">Thoát</span>
+                <button onClick={() => { if(confirm("Thoát bài thi?")) setScreen('upload'); }} className="btn-duo w-12 h-12 rounded-2xl border-2 border-[#e5e5e5] border-b-[4px] text-[#afafaf] hover:bg-[#f7f7f7] flex items-center justify-center font-black text-xl">
+                    <X size={24} strokeWidth={3}/>
                 </button>
             ) : (
-                <div className={`flex items-center gap-2 font-bold text-lg cursor-pointer ${isGuestMode ? '' : 'hover:opacity-80'}`} onClick={() => !isGuestMode && setScreen('upload')}>
-                    <div className="w-9 h-9 bg-blue-600 text-white flex items-center justify-center rounded-lg shadow-md">A</div> 
-                    <span className={isExamMode ? "text-white" : "text-gray-700"}>Azota Ultra</span>
+                <div className="flex items-center gap-2 cursor-pointer transition-transform hover:scale-105" onClick={() => !isGuestMode && setScreen('upload')}>
+                    <div className="w-10 h-10 bg-[#1cb0f6] text-white flex items-center justify-center rounded-xl font-black text-xl shadow-[0_3px_0_#1899d6]">A</div> 
+                    <span className="font-black text-[22px] tracking-tight hidden sm:block text-[#1cb0f6]">Azota<span className="text-[#58cc02]">Ultra</span></span>
                 </div>
             )}
         </div>
-        <div className="flex items-center gap-3">
-            {installPrompt && (
-                <button onClick={handleInstallApp} className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-bold text-xs shadow-lg animate-pulse hover:scale-105 transition-transform"><Download size={14}/> CÀI APP</button>
-            )}
-            {screen === 'exam' && (
-                <>
-                    <button onClick={() => setIsMuted(!isMuted)} className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all border border-white/5">{isMuted ? <VolumeX size={18}/> : <Volume2 size={18}/>}</button>
-                    <div className="flex items-center gap-2 text-cyan-300 bg-cyan-950/30 px-3 py-1.5 rounded-full border border-cyan-500/20 shadow-[0_0_10px_rgba(6,182,212,0.1)]">
-                        <Clock size={16}/><span className="font-mono font-bold">{isPracticeMode ? "∞" : formatTime(timeLeft)}</span>
+
+        {/* Thanh Tiến Độ (Chỉ hiện khi đang thi) */}
+        {screen === 'exam' ? (
+            <div className="flex-1 max-w-2xl mx-4 sm:mx-8 flex items-center gap-4">
+                <div className="font-bold text-[#afafaf] hidden sm:block whitespace-nowrap">Tiến độ</div>
+                <div className="flex-1 h-5 bg-[#e5e5e5] rounded-full overflow-hidden relative">
+                    <div className="h-full bg-[#58cc02] rounded-full relative transition-all duration-500 ease-out" style={{width: `${progressPercent}%`}}>
+                        <div className="absolute top-1.5 left-3 right-3 h-1.5 bg-white/30 rounded-full"></div>
                     </div>
-                    <button onClick={() => { if(confirm("Làm lại từ đầu?")) startExamFinal(questions); }} className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all border border-white/5"><RotateCcw size={18}/></button>
-                </>
-            )}
-            {!isGuestMode && screen !== 'exam' && screen !== 'upload' && (<button onClick={() => setScreen('upload')} className="text-gray-500 font-bold text-sm">Trang chủ</button>)}
-        </div>
+                </div>
+                <button onClick={() => setIsMuted(!isMuted)} className="text-[#afafaf] hover:text-[#4b4b4b] transition-colors">{isMuted ? <VolumeX size={24}/> : <Volume2 size={24}/>}</button>
+            </div>
+        ) : (
+            <div className="flex items-center gap-3">
+                {installPrompt && (
+                    <button onClick={handleInstallApp} className="btn-duo flex items-center gap-2 px-4 py-2 bg-[#ffc800] border-[#e5b400] border-b-[4px] text-white rounded-xl font-black text-sm uppercase tracking-wider"><Download size={18}/> App</button>
+                )}
+                {!isGuestMode && screen !== 'upload' && (<button onClick={() => setScreen('upload')} className="btn-duo px-4 py-2 bg-white border-2 border-[#e5e5e5] border-b-[4px] text-[#afafaf] font-bold rounded-xl hover:bg-[#f7f7f7]">TRANG CHỦ</button>)}
+            </div>
+        )}
       </header>
 
-      <main className="pt-24 pb-32 px-4 h-screen overflow-y-auto no-scrollbar">
+      <main className="flex-1 overflow-y-auto custom-scroll flex flex-col items-center">
+        
+        {/* --- MÀN HÌNH TẢI ĐỀ --- */}
         {screen === 'upload' && !isGuestMode && (
-          <div className="flex flex-col items-center justify-center min-h-[80vh] animate-fade-in-up">
-             <div className="w-full max-w-lg bg-white p-8 rounded-3xl shadow-xl border border-gray-100 text-center">
-                <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-6 text-indigo-600"><Upload size={40} /></div>
-                <h2 className="text-2xl font-black text-gray-900 mb-2">Tạo & Chia Sẻ Đề</h2>
-                <p className="text-gray-500 mb-8 text-sm flex items-center justify-center gap-2">Upload đề thi (Word) <ArrowRight size={14}/> Lấy Link <ArrowRight size={14}/> Gửi bạn bè.</p>
-                <div className="flex gap-3 mb-6 justify-center">
-                   <button onClick={() => setIsPracticeMode(false)} className={`flex-1 py-2 rounded-xl text-sm font-bold border ${!isPracticeMode ? 'bg-blue-50 border-blue-500 text-blue-700' : 'border-gray-200 text-gray-500'}`}>🔥 Thi Thử</button>
-                   <button onClick={() => setIsPracticeMode(true)} className={`flex-1 py-2 rounded-xl text-sm font-bold border ${isPracticeMode ? 'bg-green-50 border-green-500 text-green-700' : 'border-gray-200 text-gray-500'}`}>🌱 Luyện Tập</button>
-                </div>
-                <label className="block w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg cursor-pointer hover:scale-[1.02] transition-transform mb-4">
-                    <div className="flex items-center justify-center gap-2"><FileText size={20} /> Tải file Word</div>
-                    <input type="file" accept=".docx" className="hidden" onChange={handleFileUpload} />
-                </label>
-                <button onClick={handleCreateDemo} className="text-indigo-600 font-bold text-sm hover:underline">Dùng thử đề mẫu</button>
+          <div className="flex flex-col items-center justify-center w-full max-w-xl p-6 py-12 animate-fade-in-up">
+             <div className="w-24 h-24 bg-[#ddf4ff] rounded-full flex items-center justify-center mx-auto mb-6 text-[#1cb0f6]"><Upload size={48} strokeWidth={2.5}/></div>
+             <h2 className="text-3xl font-black text-[#3c3c3c] mb-3 text-center">Tạo & Chia Sẻ Đề</h2>
+             <p className="text-[#afafaf] mb-10 text-center font-bold">Upload file Word để trải nghiệm giao diện siêu việt.</p>
+             
+             <div className="flex gap-4 w-full mb-8">
+                <button onClick={() => setIsPracticeMode(false)} className={`btn-duo flex-1 py-4 rounded-2xl font-black text-lg border-2 border-b-[4px] ${!isPracticeMode ? 'bg-[#ddf4ff] border-[#1cb0f6] text-[#1cb0f6]' : 'bg-white border-[#e5e5e5] text-[#afafaf] hover:bg-[#f7f7f7]'}`}>🔥 THI THỬ</button>
+                <button onClick={() => setIsPracticeMode(true)} className={`btn-duo flex-1 py-4 rounded-2xl font-black text-lg border-2 border-b-[4px] ${isPracticeMode ? 'bg-[#d7ffb8] border-[#58a700] text-[#58a700]' : 'bg-white border-[#e5e5e5] text-[#afafaf] hover:bg-[#f7f7f7]'}`}>🌱 LUYỆN TẬP</button>
              </div>
+             
+             <label className="btn-duo block w-full bg-[#58cc02] border-[#58a700] border-b-[4px] text-white py-5 rounded-2xl font-black text-xl text-center cursor-pointer hover:bg-[#46a302] mb-6">
+                 TẢI LÊN FILE WORD (.DOCX)
+                 <input type="file" accept=".docx" className="hidden" onChange={handleFileUpload} />
+             </label>
+             <button onClick={handleCreateDemo} className="font-bold text-[#1cb0f6] uppercase tracking-wider text-sm hover:underline">Dùng thử đề mẫu ngay</button>
           </div>
         )}
 
+        {/* --- MÀN HÌNH SỬA ĐỀ --- */}
         {screen === 'edit' && !isGuestMode && (
-          <div className="flex flex-col lg:flex-row gap-6 max-w-6xl mx-auto">
-             <div className="flex-1 bg-white rounded-2xl shadow-sm p-4 sm:p-6 border border-gray-100">
-               <div className="flex justify-between items-center mb-4 pb-4 border-b">
-                 <h2 className="text-lg font-bold text-gray-800 flex gap-2"><Edit3 size={20} className="text-indigo-500"/> Duyệt Đề</h2>
-                 <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs font-bold">{questions.length} câu</span>
+          <div className="flex flex-col lg:flex-row gap-8 w-full max-w-6xl p-6">
+             <div className="flex-1 bg-white rounded-3xl border-2 border-[#e5e5e5] p-6 sm:p-8">
+               <div className="flex justify-between items-center mb-6 pb-6 border-b-2 border-[#e5e5e5]">
+                 <h2 className="text-2xl font-black text-[#3c3c3c] flex items-center gap-3"><Edit3 size={28} className="text-[#1cb0f6]"/> Duyệt Đề</h2>
+                 <span className="bg-[#ffc800] text-white px-4 py-1.5 rounded-xl font-black uppercase text-sm shadow-[0_3px_0_#e5b400]">{questions.length} câu</span>
                </div>
+               
                <div className="space-y-6">
                  {questions.map((q, idx) => (
-                   <div key={q.id} className="border rounded-xl p-4 hover:border-indigo-300 transition-colors">
-                      <div className="flex justify-between items-start mb-3">
-                          <div className="font-bold text-gray-800 flex gap-2">
-                             <span className="text-indigo-600 shrink-0">Câu {idx + 1}:</span>
+                   <div key={q.id} className="border-2 border-[#e5e5e5] rounded-2xl p-6 transition-colors hover:border-[#1cb0f6]">
+                      <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4">
+                          <div className="font-bold text-[#4b4b4b] text-lg flex gap-2 leading-relaxed">
+                             <span className="text-[#1cb0f6] font-black shrink-0">Câu {idx + 1}:</span>
                              <span dangerouslySetInnerHTML={{ __html: q.question?.replace(/^(Câu)?\s*\d+[\.:]\s*/i, '') || '' }} />
                           </div>
-                          <button
-                              onClick={() => {
-                                  const newQs = [...questions];
-                                  newQs[idx].type = newQs[idx].type === 'single' ? 'group' : 'single';
-                                  setQuestions(newQs);
-                              }}
-                              className="ml-4 text-[10px] uppercase tracking-wider px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 rounded font-bold shrink-0 transition-colors shadow-sm"
-                              title="Click để đổi qua lại giữa Trắc nghiệm thường và Đúng/Sai"
-                          >
-                              {q.type === 'single' ? 'Đổi sang Đúng/Sai' : 'Đổi sang Chọn 1'}
+                          <button onClick={() => { const newQs = [...questions]; newQs[idx].type = newQs[idx].type === 'single' ? 'group' : 'single'; setQuestions(newQs); }} className="btn-duo px-3 py-2 bg-[#ddf4ff] border-2 border-[#1cb0f6] border-b-[4px] text-[#1cb0f6] rounded-xl font-black text-xs uppercase tracking-wider shrink-0 whitespace-nowrap">
+                              {q.type === 'single' ? 'Đổi dạng Đúng/Sai' : 'Đổi dạng Chọn 1'}
                           </button>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm mt-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
                         {q.options?.map(opt => (
-                            <div key={opt.key} onClick={() => toggleCorrectAnswer(idx, opt.key)} className={`p-2 rounded border cursor-pointer flex items-center gap-2 ${opt.isCorrect ? 'bg-green-50 border-green-500 text-green-700 font-bold' : 'hover:bg-gray-50'}`}>
-                                <span className={`w-5 h-5 flex items-center justify-center rounded border text-xs ${opt.isCorrect ? 'bg-green-500 text-white border-green-500' : 'bg-white'}`}>{opt.key}</span>{opt.text}
+                            <div key={opt.key} onClick={() => toggleCorrectAnswer(idx, opt.key)} className={`btn-duo p-3 rounded-xl border-2 border-b-[4px] cursor-pointer flex items-center gap-3 font-bold ${opt.isCorrect ? 'bg-[#d7ffb8] border-[#58a700] text-[#58a700]' : 'bg-white border-[#e5e5e5] text-[#afafaf] hover:bg-[#f7f7f7]'}`}>
+                                <span className={`w-8 h-8 flex items-center justify-center rounded-lg border-2 ${opt.isCorrect ? 'bg-white border-[#58a700] text-[#58a700]' : 'bg-white border-[#e5e5e5]'}`}>{opt.key}</span>
+                                <span className="text-[#4b4b4b]">{opt.text}</span>
                             </div>
                         ))}
-                        {q.type === 'text' && <input type="text" value={q.correctAnswer} onChange={(e) => handleTextAnswerEdit(idx, e.target.value)} className="border rounded p-2 w-full font-bold text-green-700"/>}
+                        {q.type === 'text' && <input type="text" value={q.correctAnswer} onChange={(e) => handleTextAnswerEdit(idx, e.target.value)} className="border-2 border-[#e5e5e5] rounded-xl p-3 w-full font-bold text-[#58a700] focus:border-[#1cb0f6] outline-none"/>}
                       </div>
                    </div>
                  ))}
                </div>
              </div>
-             <div className="lg:w-80 flex flex-col gap-4">
-                <div className="bg-indigo-600 rounded-2xl shadow-lg p-6 text-white">
-                    <h3 className="font-bold text-xl mb-4 text-center">Chia Sẻ & Thi</h3>
-                    <div className="mb-4 space-y-3">
-                        <div className="flex items-center gap-2 mb-2 bg-white/20 p-2 rounded-lg cursor-pointer hover:bg-white/30 transition-all" onClick={() => setShareAsPractice(!shareAsPractice)}>
-                            <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${shareAsPractice ? 'bg-green-400 border-green-400' : 'border-white/50'}`}>{shareAsPractice && <Check size={14} className="text-white" strokeWidth={3} />}</div>
-                            <span className="text-sm font-bold text-white/90">Link cho Luyện tập</span>
-                        </div>
-                         {!shareLink ? (
-                            <button onClick={handleCreateShareLink} className="w-full bg-white text-indigo-700 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-sm hover:bg-gray-50 mb-3">
-                                {isLoading ? "Đang tạo..." : <><Cloud size={18}/> Tạo Link Ngay</>}
-                            </button>
-                        ) : (
-                            <div className="bg-white/20 p-3 rounded-xl mb-3"><div className="bg-white text-indigo-900 p-2 rounded text-xs truncate mb-2">{shareLink}</div><button onClick={copyToClipboard} className="w-full bg-green-400 hover:bg-green-500 text-white py-2 rounded-lg font-bold text-sm">Sao chép</button></div>
-                        )}
+
+             <div className="w-full lg:w-80 flex flex-col gap-6">
+                <div className="bg-white rounded-3xl border-2 border-[#e5e5e5] p-6 text-center">
+                    <h3 className="font-black text-xl mb-6 text-[#3c3c3c]">Chia Sẻ & Thi</h3>
+                    <div className="flex items-center justify-center gap-3 mb-6 bg-[#f7f7f7] p-3 rounded-xl cursor-pointer" onClick={() => setShareAsPractice(!shareAsPractice)}>
+                        <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${shareAsPractice ? 'bg-[#1cb0f6] border-[#1cb0f6]' : 'bg-white border-[#afafaf]'}`}>{shareAsPractice && <Check size={16} className="text-white" strokeWidth={4} />}</div>
+                        <span className="text-sm font-bold text-[#4b4b4b]">Tạo link Luyện tập</span>
                     </div>
-                    <button onClick={() => startExamFinal(questions)} className="w-full bg-yellow-400 hover:bg-yellow-500 text-yellow-900 py-3 rounded-xl font-bold text-lg flex items-center justify-center gap-2 shadow-lg animate-pulse"><Play size={20}/> VÀO THI NGAY</button>
+                     
+                    {!shareLink ? (
+                        <button onClick={handleCreateShareLink} className="btn-duo w-full bg-[#1cb0f6] text-white py-4 rounded-2xl border-2 border-[#1899d6] border-b-[4px] font-black uppercase tracking-wider mb-4">
+                            {isLoading ? "Đang tạo..." : "TẠO LINK CHIA SẺ"}
+                        </button>
+                    ) : (
+                        <div className="bg-[#ddf4ff] border-2 border-[#1cb0f6] p-4 rounded-2xl mb-4 text-left">
+                            <div className="bg-white text-[#1cb0f6] p-2 rounded-lg font-bold text-xs truncate mb-3">{shareLink}</div>
+                            <button onClick={copyToClipboard} className="btn-duo w-full bg-[#58cc02] border-[#58a700] border-b-[4px] text-white py-3 rounded-xl font-black uppercase text-sm">Sao chép Link</button>
+                        </div>
+                    )}
+                    
+                    <button onClick={() => startExamFinal(questions)} className="btn-duo w-full bg-[#ffc800] text-white py-4 rounded-2xl border-2 border-[#e5b400] border-b-[4px] font-black text-lg uppercase tracking-wider shadow-[0_4px_15px_rgba(255,200,0,0.4)]">
+                        THI TRỰC TIẾP
+                    </button>
                 </div>
-                <div className="bg-white rounded-2xl shadow-sm p-4 border border-gray-100">
-                    <div className="font-bold text-gray-700 mb-2 flex gap-2"><MousePointerClick size={18}/> Sửa Key Nhanh</div>
-                    <textarea className="w-full p-2 border rounded-lg text-sm h-24 font-mono mb-2" placeholder="1A&#10;2B..." value={quickKeyInput} onChange={(e) => setQuickKeyInput(e.target.value)}></textarea>
-                    <button onClick={applyQuickKeys} className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg font-bold text-sm">Cập nhật</button>
+
+                <div className="bg-white rounded-3xl border-2 border-[#e5e5e5] p-6">
+                    <div className="font-black text-[#3c3c3c] mb-4 flex items-center gap-2"><Type size={20}/> Sửa Key Nhanh</div>
+                    <textarea className="w-full p-4 border-2 border-[#e5e5e5] rounded-2xl text-sm h-32 font-mono font-bold text-[#4b4b4b] focus:border-[#1cb0f6] outline-none mb-4 custom-scroll" placeholder="1A&#10;2B..." value={quickKeyInput} onChange={(e) => setQuickKeyInput(e.target.value)}></textarea>
+                    <button onClick={applyQuickKeys} className="btn-duo w-full bg-[#f7f7f7] border-2 border-[#e5e5e5] border-b-[4px] text-[#afafaf] hover:text-[#4b4b4b] py-3 rounded-xl font-black uppercase">Cập nhật nhanh</button>
                 </div>
              </div>
           </div>
         )}
 
+        {/* --- MÀN HÌNH CHỜ THI (GUEST) --- */}
         {screen === 'edit' && isGuestMode && (
-            <div className="flex flex-col items-center justify-center min-h-[80vh] animate-fade-in-up">
-                <div className="bg-[#18181b] p-8 rounded-3xl border border-white/10 shadow-2xl text-center max-w-md w-full relative overflow-hidden group">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
-                    <h2 className="text-3xl font-black text-white mb-2 tracking-tight">{examName}</h2>
-                    <div className="flex justify-center gap-4 mb-8">
-                        <span className="px-3 py-1 bg-white/5 rounded-full text-xs font-mono text-gray-400 border border-white/5">{questions.length} câu hỏi</span>
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold border ${isPracticeMode ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>{isPracticeMode ? 'Luyện Tập' : 'Thi Thử'}</span>
+            <div className="flex flex-col items-center justify-center min-h-[70vh] p-4 w-full">
+                <div className="bg-white p-8 sm:p-10 rounded-3xl border-2 border-[#e5e5e5] text-center max-w-lg w-full shadow-lg">
+                    <div className="w-24 h-24 mx-auto bg-[#ddf4ff] rounded-full flex items-center justify-center mb-6">
+                        <BookOpen size={48} className="text-[#1cb0f6]"/>
                     </div>
-                    <button onClick={() => startExamFinal(questions)} className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white py-4 rounded-xl font-bold text-lg shadow-[0_0_30px_rgba(99,102,241,0.4)] transition-all flex items-center justify-center gap-3"><Play size={24} fill="currentColor"/> VÀO THI NGAY</button>
+                    <h2 className="text-3xl font-black text-[#3c3c3c] mb-4 leading-tight">{examName}</h2>
+                    <div className="flex justify-center gap-3 mb-10">
+                        <span className="px-4 py-1.5 bg-[#f7f7f7] rounded-xl text-sm font-black text-[#afafaf] border-2 border-[#e5e5e5] uppercase">{questions.length} câu hỏi</span>
+                        <span className={`px-4 py-1.5 rounded-xl text-sm font-black uppercase border-2 ${isPracticeMode ? 'bg-[#d7ffb8] text-[#58a700] border-[#58a700]' : 'bg-[#ddf4ff] text-[#1cb0f6] border-[#1cb0f6]'}`}>{isPracticeMode ? 'Luyện Tập' : 'Thi Thử'}</span>
+                    </div>
+                    <button onClick={() => startExamFinal(questions)} className="btn-duo w-full bg-[#58cc02] border-[#58a700] border-b-[4px] text-white py-5 rounded-2xl font-black text-2xl uppercase tracking-widest hover:bg-[#46a302]">
+                        BẮT ĐẦU NGAY
+                    </button>
                 </div>
             </div>
         )}
 
+        {/* --- MÀN HÌNH LÀM BÀI (PRO x DUOLINGO) --- */}
         {screen === 'exam' && currentQ && (
-            <div className="max-w-2xl mx-auto relative mt-4">
+            <div className="flex-1 flex max-w-6xl w-full mx-auto p-4 sm:p-6 gap-8 relative pb-24 lg:pb-6">
+                
+                {/* Lưới câu hỏi thả xuống trên Mobile */}
                 {showQuestionGrid && (
-                    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[60] flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowQuestionGrid(false)}>
-                        <div className="bg-[#18181b] w-full max-w-md p-6 rounded-3xl border border-white/10 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className="font-bold text-lg text-white flex items-center gap-2"><Grid size={18} className="text-cyan-400"/> Map Câu Hỏi</h3>
-                                <button onClick={() => setShowQuestionGrid(false)} className="p-2 bg-white/5 rounded-full text-gray-400 hover:text-white"><X size={20}/></button>
-                            </div>
-                            <div className="grid grid-cols-5 gap-3 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
-                                {questions.map((q, idx) => {
-                                    const isDone = checkedQuestions[q.id], isError = checkError === q.id, isCurrent = idx === currentQuestionIndex;
-                                    let style = "bg-white/5 text-gray-400 border-transparent hover:bg-white/10";
-                                    if (isCurrent) style = "bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.5)] border-indigo-400 scale-110";
-                                    else if (isDone) style = "bg-green-500/20 text-green-400 border-green-500/30";
-                                    else if (isError) style = "bg-red-500/20 text-red-400 border-red-500/30";
-                                    return <button key={q.id} onClick={() => { setCurrentQuestionIndex(idx); setShowQuestionGrid(false); }} className={`h-10 rounded-lg border flex items-center justify-center text-sm font-bold transition-all ${style}`}>{idx + 1}</button>
-                                })}
-                            </div>
-                            <button onClick={handleSubmit} className="w-full mt-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3.5 rounded-xl font-bold transition-all">NỘP BÀI NGAY</button>
+                    <div className="fixed inset-0 bg-white/90 backdrop-blur-sm z-[60] flex flex-col p-6 animate-fade-in lg:hidden">
+                        <div className="flex justify-between items-center mb-8">
+                            <h3 className="font-black text-2xl text-[#3c3c3c]">Bản Đồ Câu Hỏi</h3>
+                            <button onClick={() => setShowQuestionGrid(false)} className="btn-duo w-12 h-12 bg-white rounded-2xl border-2 border-[#e5e5e5] border-b-[4px] text-[#afafaf] flex items-center justify-center font-black"><X size={24}/></button>
                         </div>
+                        <div className="flex flex-wrap gap-3 content-start flex-1 overflow-y-auto custom-scroll pb-20">
+                            {questions.map((q, idx) => {
+                                const isDone = checkedQuestions[q.id] || userAnswers[q.id] !== undefined, isError = checkError === q.id, isCurrent = idx === currentQuestionIndex;
+                                let style = "bg-white border-[#e5e5e5] text-[#afafaf] border-b-[4px]";
+                                if (isCurrent) style = "bg-[#1cb0f6] border-[#1899d6] text-white border-b-[4px]";
+                                else if (isDone) style = "bg-[#ddf4ff] border-[#1cb0f6] text-[#1cb0f6] border-b-[4px]";
+                                return <button key={q.id} onClick={() => { setCurrentQuestionIndex(idx); setShowQuestionGrid(false); }} className={`btn-duo w-14 h-14 rounded-2xl border-2 font-black text-lg flex items-center justify-center ${style}`}>{idx + 1}</button>
+                            })}
+                        </div>
+                        <button onClick={() => {setShowQuestionGrid(false); handleSubmit();}} className="btn-duo w-full mt-auto bg-[#ff4b4b] border-[#ea2b2b] border-b-[4px] text-white py-5 rounded-2xl font-black text-xl uppercase tracking-wider">NỘP BÀI NGAY</button>
                     </div>
                 )}
-                <div className="bg-[#18181b]/60 backdrop-blur-xl border border-white/10 rounded-[2rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] min-h-[500px] flex flex-col relative transition-all duration-500">
-                    <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-70"></div>
-                    <div className="p-6 sm:p-8 pb-2">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="text-cyan-400 text-xs font-black uppercase tracking-[0.2em] bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/20 shadow-[0_0_10px_rgba(6,182,212,0.1)]">Câu {currentQuestionIndex + 1}</div>
-                            {isPracticeMode && checkedQuestions[currentQ.id] && <div className="text-emerald-400 text-xs font-bold flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20"><CheckCircle2 size={12}/> Xong</div>}
-                        </div>
-                        <div className="text-white text-lg sm:text-2xl font-medium leading-relaxed [&>img]:rounded-xl [&>img]:my-2 [&>img]:shadow-lg" dangerouslySetInnerHTML={{ __html: currentQ.question?.replace(/^(Câu)?\s*\d+[\.:]\s*/i, '') || '' }} />
+
+                {/* Cột Trái: Đọc Câu Hỏi & Trả Lời */}
+                <div className="flex-1 flex flex-col min-h-[500px]">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="px-4 py-2 bg-[#ffc800] text-white rounded-xl font-black text-sm uppercase tracking-wider shadow-[0_3px_0_#e5b400]">Câu {currentQuestionIndex + 1}</div>
+                        <span className="font-bold text-[#afafaf] text-sm uppercase hidden sm:block">| {currentQ.type === 'single' ? 'Trắc nghiệm một lựa chọn' : currentQ.type === 'group' ? 'Trắc nghiệm đúng/sai' : 'Trả lời ngắn'}</span>
                     </div>
-                    <div className="flex items-center gap-4 px-8 py-4"><div className="h-px bg-white/5 flex-1"></div><span className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em]">Select Answer</span><div className="h-px bg-white/5 flex-1"></div></div>
-                    <div className="px-6 sm:px-8 pb-24 flex-1">
-                        {isPracticeMode && checkedQuestions[currentQ.id] && (<div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center gap-3 animate-bounce shadow-[0_0_20px_rgba(16,185,129,0.2)]"><div className="p-2 bg-emerald-500/20 rounded-full text-emerald-400"><Check size={20}/></div><div><h4 className="font-bold text-emerald-300">Chính xác! Xuất sắc.</h4><p className="text-xs text-emerald-400/70">Tiếp tục phát huy nhé!</p></div></div>)}
-                        {checkError === currentQ.id && (<div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-2xl flex items-center gap-3 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.2)]"><div className="p-2 bg-red-500/20 rounded-full text-red-400"><AlertTriangle size={20}/></div><span className="font-bold text-sm text-red-300">Chưa đúng! Thử lại xem sao.</span></div>)}
-                        <div className="flex flex-col gap-4">
-                            {currentQ.type === 'single' && currentQ.options?.map((opt) => {
-                                const uAns = userAnswers[currentQ.id], isChecked = isPracticeMode && checkedQuestions[currentQ.id], isError = checkError === currentQ.id, isSelected = uAns === opt.key;
-                                let wrapperStyle = "border-white/5 bg-white/5 hover:bg-white/10 hover:border-white/10", keyStyle = "bg-black/30 text-gray-400 border border-white/5", textStyle = "text-gray-300";
-                                if (isChecked) { if (opt.isCorrect) { wrapperStyle = "border-emerald-500/50 bg-emerald-500/10 shadow-[0_0_25px_rgba(16,185,129,0.3)]"; keyStyle = "bg-emerald-500 text-black font-bold border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.5)]"; textStyle = "text-emerald-300 font-bold"; } else if (isSelected) { wrapperStyle = "border-transparent bg-white/5 opacity-30"; } else { wrapperStyle = "border-transparent bg-transparent opacity-20"; } } 
-                                else if (isError && isSelected) { wrapperStyle = "border-red-500/50 bg-red-500/10 shadow-[0_0_25px_rgba(239,68,68,0.3)]"; keyStyle = "bg-red-500 text-white border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.5)]"; textStyle = "text-red-300 font-bold"; } 
-                                else if (isSelected) { wrapperStyle = "border-indigo-500/50 bg-indigo-500/20 shadow-[0_0_20px_rgba(99,102,241,0.2)] scale-[1.02]"; keyStyle = "bg-indigo-500 text-white font-bold border-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.5)]"; textStyle = "text-indigo-200 font-bold"; }
-                                return <div key={opt.key} onClick={() => handleAnswerChange(currentQ.id, opt.key, 'single')} className={`flex items-center p-4 rounded-2xl border transition-all cursor-pointer group active:scale-[0.97] duration-200 ${wrapperStyle}`}><div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm mr-4 transition-all shrink-0 ${keyStyle}`}>{opt.key}</div><div className={`flex-1 text-base transition-all ${textStyle}`}>{opt.text}</div></div>
+
+                    <div className="text-[#3c3c3c] text-xl sm:text-2xl font-black leading-relaxed mb-8 [&>img]:rounded-2xl [&>img]:my-4 [&>img]:shadow-md [&>img]:border-2 [&>img]:border-[#e5e5e5]" dangerouslySetInnerHTML={{ __html: currentQ.question?.replace(/^(Câu)?\s*\d+[\.:]\s*/i, '') || '' }} />
+                    
+                    {/* Banner Thông báo Luyện Tập (Đúng/Sai) */}
+                    {isPracticeMode && checkedQuestions[currentQ.id] && (<div className="mb-6 p-4 bg-[#d7ffb8] border-2 border-[#58a700] rounded-2xl flex items-center gap-4 animate-bounce"><div className="w-12 h-12 bg-[#58cc02] rounded-full flex items-center justify-center text-white shrink-0"><Check size={28} strokeWidth={3}/></div><h4 className="font-black text-[#58a700] text-xl">Tuyệt vời! Chính xác.</h4></div>)}
+                    {checkError === currentQ.id && (<div className="mb-6 p-4 bg-[#ffdfe0] border-2 border-[#ea2b2b] rounded-2xl flex items-center gap-4 animate-pulse"><div className="w-12 h-12 bg-[#ff4b4b] rounded-full flex items-center justify-center text-white shrink-0"><X size={28} strokeWidth={3}/></div><h4 className="font-black text-[#ea2b2b] text-xl">Chưa đúng! Thử lại nào.</h4></div>)}
+
+                    {/* Vùng chọn đáp án */}
+                    <div className="flex flex-col gap-4 flex-1">
+                        {currentQ.type === 'single' && currentQ.options?.map((opt) => {
+                            const uAns = userAnswers[currentQ.id], isChecked = isPracticeMode && checkedQuestions[currentQ.id], isError = checkError === currentQ.id, isSelected = uAns === opt.key;
+                            
+                            let wrapperStyle = "bg-white border-[#e5e5e5] text-[#4b4b4b] border-b-[4px] hover:bg-[#f7f7f7]";
+                            let boxStyle = "border-[#e5e5e5] text-[#afafaf] bg-white";
+                            
+                            if (isChecked) { 
+                                if (opt.isCorrect) { wrapperStyle = "bg-[#d7ffb8] border-[#58a700] border-b-[4px] text-[#58a700]"; boxStyle = "bg-white border-[#58a700] text-[#58a700]"; } 
+                                else if (isSelected) { wrapperStyle = "bg-gray-100 border-[#e5e5e5] opacity-50"; boxStyle = "bg-white border-[#e5e5e5]"; } 
+                                else { wrapperStyle = "bg-white border-[#e5e5e5] opacity-30"; boxStyle = "bg-white border-[#e5e5e5]"; } 
+                            } 
+                            else if (isError && isSelected) { wrapperStyle = "bg-[#ffdfe0] border-[#ea2b2b] border-b-[4px] text-[#ea2b2b]"; boxStyle = "bg-white border-[#ea2b2b] text-[#ea2b2b]"; } 
+                            else if (isSelected) { wrapperStyle = "bg-[#ddf4ff] border-[#1cb0f6] border-b-[4px] text-[#1cb0f6]"; boxStyle = "bg-white border-[#1cb0f6] text-[#1cb0f6]"; }
+                            
+                            return <div key={opt.key} onClick={() => handleAnswerChange(currentQ.id, opt.key, 'single')} className={`btn-duo w-full p-4 sm:p-5 rounded-2xl border-2 font-bold text-lg cursor-pointer flex items-center gap-4 ${wrapperStyle}`}><div className={`w-10 h-10 rounded-xl flex items-center justify-center border-2 font-black text-lg shrink-0 ${boxStyle}`}>{opt.key}</div><div className="flex-1" dangerouslySetInnerHTML={{ __html: opt.text }}></div></div>
+                        })}
+                        {currentQ.type === 'group' && currentQ.options?.map((opt) => (
+                            <div key={opt.key} className="p-4 sm:p-5 border-2 border-[#e5e5e5] border-b-[4px] rounded-2xl bg-white flex flex-col sm:flex-row justify-between sm:items-center gap-4 hover:bg-[#f7f7f7] transition-colors"><div className="font-bold text-[#4b4b4b] text-lg flex-1"><span className="font-black text-[#1cb0f6] mr-2">{opt.key}.</span><span dangerouslySetInnerHTML={{ __html: opt.text }}></span></div><div className="flex gap-3 shrink-0">
+                                {['ĐÚNG', 'SAI'].map((label, i) => {
+                                    const val = i === 0, myChoice = userAnswers[currentQ.id]?.[opt.key], isLocked = isPracticeMode && checkedQuestions[currentQ.id];
+                                    const isActive = myChoice === val;
+                                    const btnStyle = isActive ? (val ? 'bg-[#1cb0f6] border-[#1899d6] border-b-[4px] text-white' : 'bg-[#ff4b4b] border-[#ea2b2b] border-b-[4px] text-white') : 'bg-white border-[#e5e5e5] border-b-[4px] text-[#afafaf] hover:bg-[#f7f7f7]';
+                                    return <button key={label} onClick={() => !isLocked && handleAnswerChange(currentQ.id, val, 'group', opt.key)} className={`btn-duo px-6 py-3 rounded-xl border-2 font-black text-sm uppercase tracking-wider ${btnStyle}`}>{label}</button>
+                                })}
+                            </div></div>
+                        ))}
+                        {currentQ.type === 'text' && <input type="text" placeholder="Nhập đáp án..." className="w-full p-5 text-xl bg-white border-2 border-[#e5e5e5] border-b-[4px] rounded-2xl text-[#3c3c3c] font-black outline-none focus:border-[#1cb0f6] transition-all" value={userAnswers[currentQ.id] || ''} onChange={(e) => handleAnswerChange(currentQ.id, e.target.value, 'text')} />}
+                    </div>
+
+                    {/* Navigation Desktop */}
+                    <div className="hidden lg:flex justify-between items-center pt-8 mt-8 border-t-2 border-[#e5e5e5]">
+                        <button onClick={handlePrevQuestion} disabled={currentQuestionIndex === 0} className={`btn-duo px-8 py-4 rounded-2xl border-2 border-b-[4px] font-black uppercase tracking-wider text-lg ${currentQuestionIndex === 0 ? 'bg-[#f7f7f7] border-[#e5e5e5] text-[#afafaf] cursor-not-allowed opacity-50' : 'bg-white border-[#e5e5e5] text-[#afafaf] hover:bg-[#f7f7f7]'}`}>TRỞ LẠI</button>
+                        {isPracticeMode ? (
+                            <button onClick={() => handleCheckQuestion(currentQ.id)} className={`btn-duo px-10 py-4 rounded-2xl border-2 border-b-[4px] font-black uppercase tracking-wider text-lg text-white ${checkError === currentQ.id ? 'bg-[#ffc800] border-[#e5b400]' : 'bg-[#58cc02] border-[#58a700] hover:bg-[#46a302]'}`}>{checkError === currentQ.id ? 'THỬ LẠI' : 'KIỂM TRA'}</button>
+                        ) : (
+                            <button onClick={handleNextQuestion} className="btn-duo px-10 py-4 rounded-2xl border-2 border-[#1cb0f6] border-b-[4px] bg-[#1cb0f6] hover:bg-[#1899d6] text-white font-black uppercase tracking-wider text-lg">TIẾP THEO</button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Cột Phải: Thời Gian & Map (Chỉ hiện trên PC) */}
+                <div className="w-[320px] hidden lg:flex flex-col gap-6 shrink-0">
+                    {!isPracticeMode && (
+                        <div className="bg-white p-6 rounded-3xl border-2 border-[#e5e5e5] border-b-[4px] flex flex-col items-center justify-center relative overflow-hidden">
+                            <div className="text-[#afafaf] font-black uppercase tracking-widest text-xs mb-2 z-10">THỜI GIAN CÒN LẠI</div>
+                            <div className="text-[#ff4b4b] font-black text-[44px] tracking-tight z-10 leading-none">{formatTime(timeLeft)}</div>
+                            <Clock className="absolute -right-4 -bottom-4 text-[#e5e5e5] w-24 h-24 opacity-50" />
+                        </div>
+                    )}
+
+                    <div className="bg-white p-6 rounded-3xl border-2 border-[#e5e5e5] border-b-[4px] flex-1 flex flex-col h-[500px]">
+                        <div className="font-black text-[#3c3c3c] text-lg mb-4 uppercase tracking-wider">MỤC LỤC CÂU HỎI</div>
+                        <div className="flex flex-wrap gap-3 content-start flex-1 overflow-y-auto custom-scroll pr-2">
+                            {questions.map((q, idx) => {
+                                const isDone = checkedQuestions[q.id] || userAnswers[q.id] !== undefined, isCurrent = idx === currentQuestionIndex;
+                                let style = "bg-white border-[#e5e5e5] text-[#afafaf] border-b-[4px] hover:bg-[#f7f7f7]";
+                                if (isCurrent) style = "bg-[#1cb0f6] border-[#1899d6] text-white border-b-[4px]";
+                                else if (isDone) style = "bg-[#ddf4ff] border-[#1cb0f6] text-[#1cb0f6] border-b-[4px]";
+                                return <button key={q.id} onClick={() => setCurrentQuestionIndex(idx)} className={`btn-duo w-12 h-12 rounded-xl border-2 font-black text-[15px] flex items-center justify-center ${style}`}>{idx + 1}</button>
                             })}
-                            {currentQ.type === 'group' && currentQ.options?.map((opt) => (
-                                <div key={opt.key} className="p-4 border border-white/5 rounded-2xl bg-white/5 flex justify-between items-center hover:bg-white/10 transition-colors"><div className="font-medium text-gray-200"><span className="font-bold text-cyan-400 mr-2">{opt.key}.</span>{opt.text}</div><div className="flex gap-2">
-                                    {['ĐÚNG', 'SAI'].map((label, i) => {
-                                        const val = i === 0, myChoice = userAnswers[currentQ.id]?.[opt.key], isLocked = isPracticeMode && checkedQuestions[currentQ.id];
-                                        return <button key={label} onClick={() => !isLocked && handleAnswerChange(currentQ.id, val, 'group', opt.key)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${myChoice === val ? (val ? 'bg-blue-600 text-white shadow-lg' : 'bg-pink-600 text-white shadow-lg') : 'bg-black/30 text-gray-500 border border-white/5'}`}>{label}</button>
-                                    })}
-                                </div></div>
-                            ))}
-                            {currentQ.type === 'text' && <input type="text" placeholder="Nhập đáp án của bạn..." className="w-full p-4 text-lg bg-black/30 border border-white/10 rounded-2xl text-white outline-none focus:border-cyan-500 transition-all shadow-inner" value={userAnswers[currentQ.id] || ''} onChange={(e) => handleAnswerChange(currentQ.id, e.target.value, 'text')} />}
                         </div>
+                        <button onClick={handleSubmit} className="btn-duo w-full mt-6 py-4 rounded-2xl border-2 border-[#ea2b2b] border-b-[4px] bg-[#ff4b4b] hover:bg-[#e63939] text-white font-black text-lg uppercase tracking-wider">
+                            NỘP BÀI THI
+                        </button>
                     </div>
+                </div>
+
+                {/* Mobile Floating Navigation Footer */}
+                <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-white border-t-2 border-[#e5e5e5] z-50 flex gap-3 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
+                    <button onClick={handlePrevQuestion} disabled={currentQuestionIndex === 0} className="btn-duo w-14 h-14 shrink-0 flex items-center justify-center rounded-2xl border-2 border-[#e5e5e5] border-b-[4px] bg-white text-[#afafaf] font-black disabled:opacity-50"><ChevronLeft size={28} strokeWidth={3}/></button>
+                    {isPracticeMode ? (
+                        <button onClick={() => handleCheckQuestion(currentQ.id)} className={`btn-duo flex-1 rounded-2xl border-2 border-b-[4px] text-white font-black text-lg uppercase tracking-wider ${checkError === currentQ.id ? 'bg-[#ffc800] border-[#e5b400]' : 'bg-[#58cc02] border-[#58a700]'}`}>{checkError === currentQ.id ? 'THỬ LẠI' : 'KIỂM TRA'}</button>
+                    ) : (
+                        <button onClick={() => setShowQuestionGrid(true)} className="btn-duo flex-1 rounded-2xl border-2 border-[#1cb0f6] border-b-[4px] bg-[#1cb0f6] text-white font-black text-lg uppercase tracking-wider flex items-center justify-center gap-2"><Grid size={20}/> MENU</button>
+                    )}
+                    <button onClick={currentQuestionIndex < questions.length - 1 ? handleNextQuestion : handleSubmit} className={`btn-duo w-14 h-14 shrink-0 flex items-center justify-center rounded-2xl border-2 border-b-[4px] font-black text-white ${currentQuestionIndex < questions.length - 1 ? 'bg-[#1cb0f6] border-[#1899d6]' : 'bg-[#ff4b4b] border-[#ea2b2b]'}`}>{currentQuestionIndex < questions.length - 1 ? <ChevronRight size={28} strokeWidth={3}/> : <Check size={28} strokeWidth={3}/>}</button>
                 </div>
             </div>
         )}
 
-        {/* --- MÀN HÌNH KẾT QUẢ HIỂN THỊ CHI TIẾT TẤT CẢ ĐÁP ÁN --- */}
+        {/* --- MÀN HÌNH KẾT QUẢ ĐÃ NÂNG CẤP VIBE DUOLINGO --- */}
         {screen === 'result' && scoreData && (
-            <div className="max-w-4xl mx-auto mt-10 pb-24 space-y-8 animate-fade-in-up">
+            <div className="w-full max-w-4xl p-4 sm:p-6 pb-24 mx-auto animate-fade-in-up">
                 
-                {/* Bảng điểm */}
-                <div className="bg-slate-800/60 backdrop-blur-xl p-10 rounded-[3rem] border border-white/10 text-center shadow-[0_0_60px_rgba(124,58,237,0.3)] relative overflow-hidden">
-                    <div className="w-24 h-24 bg-gradient-to-tr from-yellow-400 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(234,179,8,0.6)]"><Trophy size={48} className="text-white fill-white/20"/></div>
-                    <h2 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 mb-2 tracking-tighter">{scoreData.score}</h2>
-                    <p className="text-indigo-300 mb-8 uppercase tracking-[0.3em] text-xs font-bold">Điểm Số Của Bạn</p>
-                    <div className="grid grid-cols-2 gap-4 mb-8">
-                        <div className="bg-green-500/10 p-5 rounded-2xl border border-green-500/20 text-green-400 font-bold flex flex-col items-center"><span className="text-3xl">{scoreData.correctCount}</span><span className="text-[10px] uppercase opacity-60 tracking-wider mt-1">Chính xác</span></div>
-                        <div className="bg-red-500/10 p-5 rounded-2xl border border-red-500/20 text-red-400 font-bold flex flex-col items-center"><span className="text-3xl">{scoreData.total - scoreData.correctCount}</span><span className="text-[10px] uppercase opacity-60 tracking-wider mt-1">Chưa đúng</span></div>
+                {/* Bảng điểm tổng kết */}
+                <div className="bg-white p-8 sm:p-12 rounded-[2.5rem] border-2 border-[#e5e5e5] border-b-[8px] text-center shadow-sm mb-10 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-4 bg-[#ffc800]"></div>
+                    <div className="w-28 h-28 bg-[#fff4c2] border-4 border-[#ffc800] rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_6px_0_#e5b400] relative">
+                        <Trophy size={56} className="text-[#ffc800]"/>
+                        <div className="absolute -right-2 -bottom-2 bg-[#58cc02] border-4 border-white text-white w-10 h-10 rounded-full flex items-center justify-center font-black text-lg">!</div>
                     </div>
-                    <button onClick={() => startExamFinal(questions, false)} className="w-full bg-white text-black py-4 rounded-2xl font-black hover:scale-105 transition-all">THỬ LẠI NGAY</button>
+                    <h2 className="text-[72px] font-black text-[#ffc800] mb-0 leading-none tracking-tighter drop-shadow-sm">{scoreData.score}</h2>
+                    <p className="text-[#afafaf] mb-10 font-black uppercase tracking-[0.3em] text-sm">ĐIỂM TỔNG KẾT</p>
+                    
+                    <div className="grid grid-cols-2 gap-4 max-w-md mx-auto mb-8">
+                        <div className="bg-[#d7ffb8] p-5 rounded-3xl border-2 border-[#58a700] border-b-[6px] text-[#58a700] flex flex-col items-center">
+                            <span className="text-4xl font-black mb-1">{scoreData.correctCount}</span>
+                            <span className="text-xs uppercase font-black tracking-widest opacity-80">CÂU ĐÚNG</span>
+                        </div>
+                        <div className="bg-[#ffdfe0] p-5 rounded-3xl border-2 border-[#ea2b2b] border-b-[6px] text-[#ea2b2b] flex flex-col items-center">
+                            <span className="text-4xl font-black mb-1">{scoreData.total - scoreData.correctCount}</span>
+                            <span className="text-xs uppercase font-black tracking-widest opacity-80">CÂU SAI</span>
+                        </div>
+                    </div>
+                    <button onClick={() => startExamFinal(questions, false)} className="btn-duo max-w-xs w-full mx-auto bg-[#1cb0f6] text-white py-4 rounded-2xl border-2 border-[#1899d6] border-b-[6px] font-black text-xl uppercase tracking-wider block">THỬ LẠI NGAY</button>
                 </div>
 
                 {/* Bảng Chi Tiết Từng Câu Hỏi */}
-                <div className="bg-[#18181b]/60 backdrop-blur-xl p-6 sm:p-8 rounded-[2rem] border border-white/10 shadow-2xl">
-                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><List className="text-cyan-400" /> Chi Tiết Từng Câu Hỏi</h3>
-                    <div className="space-y-6">
-                        {questions.map((q, idx) => {
-                            const uAns = userAnswers[q.id];
-                            
-                            // Giao diện khung chứa nội dung câu hỏi
-                            const questionContent = <div className="text-gray-200 font-medium mb-4 text-base leading-relaxed bg-black/20 p-4 rounded-xl border border-white/5 [&>img]:rounded-lg [&>img]:my-2 [&>img]:shadow-md" dangerouslySetInnerHTML={{ __html: q.question?.replace(/^(Câu)?\s*\d+[\.:]\s*/i, '') || '' }} />;
+                <h3 className="text-2xl font-black text-[#3c3c3c] mb-6 flex items-center gap-3"><List className="text-[#1cb0f6]" strokeWidth={3}/> BẢN BÁO CÁO CHI TIẾT</h3>
+                
+                <div className="space-y-6">
+                    {questions.map((q, idx) => {
+                        const uAns = userAnswers[q.id];
+                        const questionContent = <div className="text-[#4b4b4b] font-bold mb-6 text-lg leading-relaxed bg-[#f7f7f7] p-5 rounded-2xl border-2 border-[#e5e5e5] [&>img]:rounded-xl [&>img]:my-3" dangerouslySetInnerHTML={{ __html: q.question?.replace(/^(Câu)?\s*\d+[\.:]\s*/i, '') || '' }} />;
 
-                            if (q.type === 'single') {
-                                const isCorrect = q.options?.find(o => o.isCorrect)?.key === uAns;
+                        if (q.type === 'single') {
+                            const isCorrect = q.options?.find(o => o.isCorrect)?.key === uAns;
+                            return (
+                                <div key={q.id} className={`p-6 sm:p-8 rounded-[2rem] border-2 border-b-[6px] bg-white ${isCorrect ? 'border-[#58a700]' : 'border-[#ea2b2b]'}`}>
+                                    <div className={`font-black flex items-center gap-3 pb-4 mb-4 border-b-2 border-[#e5e5e5] text-xl ${isCorrect ? 'text-[#58a700]' : 'text-[#ea2b2b]'}`}>
+                                        {isCorrect ? <CheckCircle2 size={28} strokeWidth={3}/> : <XCircle size={28} strokeWidth={3}/>}
+                                        CÂU SỐ {idx + 1}
+                                    </div>
+                                    {questionContent}
+                                    <div className="grid grid-cols-1 gap-3 mt-4">
+                                        {q.options?.map(opt => {
+                                            const isSelected = uAns === opt.key;
+                                            const isOptCorrect = opt.isCorrect;
+                                            let wrapperStyle = "bg-white border-[#e5e5e5] opacity-50"; 
+                                            let keyStyle = "bg-white border-[#e5e5e5] text-[#afafaf]";
+                                            let textStyle = "text-[#afafaf]";
+                                            if (isOptCorrect) { wrapperStyle = "bg-[#d7ffb8] border-[#58a700] border-b-[4px] opacity-100"; keyStyle = "bg-white border-[#58a700] text-[#58a700]"; textStyle = "text-[#58a700] font-black"; } 
+                                            else if (isSelected && !isOptCorrect) { wrapperStyle = "bg-[#ffdfe0] border-[#ea2b2b] border-b-[4px] opacity-100"; keyStyle = "bg-white border-[#ea2b2b] text-[#ea2b2b]"; textStyle = "text-[#ea2b2b] font-black"; }
+                                            return (
+                                                <div key={opt.key} className={`flex items-center p-4 rounded-2xl border-2 transition-all ${wrapperStyle}`}>
+                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg mr-4 shrink-0 border-2 ${keyStyle}`}>{opt.key}</div>
+                                                    <div className={`flex-1 text-[17px] font-bold ${textStyle}`} dangerouslySetInnerHTML={{ __html: opt.text }} />
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        }
 
-                                return (
-                                    <div key={q.id} className={`p-5 rounded-2xl border ${isCorrect ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'} flex flex-col gap-2`}>
-                                        <div className="font-bold text-gray-200 flex items-center gap-2 border-b border-white/5 pb-3 mb-2">
-                                            {isCorrect ? <CheckCircle2 className="text-emerald-400" size={20}/> : <XCircle className="text-red-400" size={20}/>}
-                                            Câu {idx + 1} {isCorrect ? <span className="text-xs text-emerald-400 font-normal ml-2">(Đúng)</span> : <span className="text-xs text-red-400 font-normal ml-2">(Sai)</span>}
+                        if (q.type === 'text') {
+                            const isCorrect = checkAnswerMatch(uAns, q.correctAnswer);
+                            return (
+                                <div key={q.id} className={`p-6 sm:p-8 rounded-[2rem] border-2 border-b-[6px] bg-white ${isCorrect ? 'border-[#58a700]' : 'border-[#ea2b2b]'}`}>
+                                    <div className={`font-black flex items-center gap-3 pb-4 mb-4 border-b-2 border-[#e5e5e5] text-xl ${isCorrect ? 'text-[#58a700]' : 'text-[#ea2b2b]'}`}>
+                                        {isCorrect ? <CheckCircle2 size={28} strokeWidth={3}/> : <XCircle size={28} strokeWidth={3}/>} CÂU SỐ {idx + 1}
+                                    </div>
+                                    {questionContent}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                                        <div className="bg-[#f7f7f7] p-5 rounded-2xl border-2 border-[#e5e5e5]">
+                                            <div className="text-[12px] font-black text-[#afafaf] uppercase tracking-widest mb-2">ĐÁP ÁN BẠN NHẬP</div>
+                                            <div className={`text-xl font-black ${isCorrect ? 'text-[#58a700]' : 'text-[#ea2b2b]'}`}>{uAns || "Trống"}</div>
                                         </div>
-                                        
-                                        {questionContent}
-                                        
-                                        <div className="grid grid-cols-1 gap-2 mt-2">
-                                            {q.options?.map(opt => {
-                                                const isSelected = uAns === opt.key;
-                                                const isOptCorrect = opt.isCorrect;
-                                                
-                                                let wrapperStyle = "bg-black/20 border-white/5 opacity-60"; 
-                                                let keyStyle = "bg-black/40 text-gray-500";
-                                                let textStyle = "text-gray-400";
-                                                let icon = null;
+                                        <div className="bg-[#ddf4ff] p-5 rounded-2xl border-2 border-[#1cb0f6]">
+                                            <div className="text-[12px] font-black text-[#1cb0f6] uppercase tracking-widest mb-2">ĐÁP ÁN ĐÚNG</div>
+                                            <div className="text-xl font-black text-[#1cb0f6]">{q.correctAnswer || "Chưa cấu hình"}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )
+                        }
 
-                                                if (isOptCorrect) {
-                                                    wrapperStyle = "bg-emerald-500/10 border-emerald-500/50 ring-1 ring-emerald-500/30 opacity-100";
-                                                    keyStyle = "bg-emerald-500 text-black";
-                                                    textStyle = "text-emerald-300 font-bold";
-                                                    icon = <CheckCircle2 size={18} className="text-emerald-400 ml-auto shrink-0" />;
-                                                } else if (isSelected && !isOptCorrect) {
-                                                    wrapperStyle = "bg-red-500/10 border-red-500/50 ring-1 ring-red-500/30 opacity-100";
-                                                    keyStyle = "bg-red-500 text-white";
-                                                    textStyle = "text-red-300 font-bold";
-                                                    icon = <XCircle size={18} className="text-red-400 ml-auto shrink-0" />;
-                                                }
-
-                                                return (
-                                                    <div key={opt.key} className={`flex items-center p-3 rounded-xl border transition-all ${wrapperStyle}`}>
-                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs mr-3 shrink-0 ${keyStyle}`}>
-                                                            {opt.key}
+                        if (q.type === 'group') {
+                            return (
+                                <div key={q.id} className="p-6 sm:p-8 rounded-[2rem] border-2 border-b-[6px] bg-white border-[#1cb0f6]">
+                                    <div className="font-black flex items-center gap-3 pb-4 mb-4 border-b-2 border-[#e5e5e5] text-xl text-[#1cb0f6]">
+                                        <List size={28} strokeWidth={3}/> CÂU SỐ {idx + 1} (ĐÚNG/SAI)
+                                    </div>
+                                    {questionContent}
+                                    <div className="grid grid-cols-1 gap-3 mt-4">
+                                        {q.options?.map(opt => {
+                                            const myChoice = uAns ? uAns[opt.key] : undefined, subCorrect = myChoice === opt.isCorrect;
+                                            return (
+                                                <div key={opt.key} className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-5 rounded-2xl border-2 border-b-[4px] gap-4 ${subCorrect ? 'bg-[#d7ffb8] border-[#58a700]' : 'bg-[#ffdfe0] border-[#ea2b2b]'}`}>
+                                                    <span className={`text-[17px] flex-1 flex gap-3 font-bold ${subCorrect ? 'text-[#58a700]' : 'text-[#ea2b2b]'}`}>
+                                                        <span className="font-black">{opt.key}.</span> <span dangerouslySetInnerHTML={{ __html: opt.text }}/>
+                                                    </span>
+                                                    <div className="flex gap-3 text-sm shrink-0 w-full sm:w-auto">
+                                                        <div className="flex-1 sm:flex-none bg-white px-4 py-2 rounded-xl text-center border-2 border-[#e5e5e5]">
+                                                            <span className="text-[#afafaf] text-[10px] font-black uppercase tracking-widest block mb-1">BẠN CHỌN</span>
+                                                            <span className={`font-black ${subCorrect ? 'text-[#58a700]' : 'text-[#ea2b2b]'}`}>{myChoice === true ? 'ĐÚNG' : myChoice === false ? 'SAI' : 'TRỐNG'}</span>
                                                         </div>
-                                                        <div className={`flex-1 text-sm ${textStyle} [&>img]:rounded-md [&>img]:max-h-20`} dangerouslySetInnerHTML={{ __html: opt.text }} />
-                                                        {icon}
-                                                    </div>
-                                                )
-                                            })}
-                                        </div>
-                                    </div>
-                                );
-                            }
-
-                            if (q.type === 'text') {
-                                const isCorrect = checkAnswerMatch(uAns, q.correctAnswer);
-                                return (
-                                    <div key={q.id} className={`p-5 rounded-2xl border ${isCorrect ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'} flex flex-col gap-2`}>
-                                        <div className="font-bold text-gray-200 flex items-center gap-2 border-b border-white/5 pb-3 mb-2">
-                                            {isCorrect ? <CheckCircle2 className="text-emerald-400" size={20}/> : <XCircle className="text-red-400" size={20}/>}
-                                            Câu {idx + 1} {isCorrect ? <span className="text-xs text-emerald-400 font-normal ml-2">(Đúng)</span> : <span className="text-xs text-red-400 font-normal ml-2">(Sai)</span>}
-                                        </div>
-                                        {questionContent}
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
-                                            <div className="bg-black/40 p-4 rounded-xl border border-white/5">
-                                                <div className="text-[10px] text-gray-500 uppercase tracking-widest mb-2">ĐÁP ÁN BẠN GÕ:</div>
-                                                <div className={`font-black ${isCorrect ? 'text-emerald-400' : 'text-red-400'}`}>{uAns || "Trống"}</div>
-                                            </div>
-                                            <div className="bg-black/40 p-4 rounded-xl border border-white/5">
-                                                <div className="text-[10px] text-gray-500 uppercase tracking-widest mb-2">ĐÁP ÁN ĐÚNG:</div>
-                                                <div className="font-black text-cyan-400">{q.correctAnswer || "Chưa cấu hình"}</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )
-                            }
-
-                            if (q.type === 'group') {
-                                return (
-                                    <div key={q.id} className="p-5 rounded-2xl border border-white/10 bg-white/5 flex flex-col gap-2">
-                                        <div className="font-bold text-gray-200 border-b border-white/5 pb-3 mb-2 flex items-center gap-2">
-                                            <List size={18} className="text-indigo-400"/> Câu {idx + 1} (Trắc nghiệm Đúng/Sai)
-                                        </div>
-                                        
-                                        {questionContent}
-
-                                        <div className="grid grid-cols-1 gap-2 mt-2">
-                                            {q.options?.map(opt => {
-                                                const myChoice = uAns ? uAns[opt.key] : undefined;
-                                                const subCorrect = myChoice === opt.isCorrect;
-                                                return (
-                                                    <div key={opt.key} className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-xl bg-black/20 border ${subCorrect ? 'border-emerald-500/20' : 'border-red-500/20'} gap-4`}>
-                                                        <span className="text-gray-300 text-sm flex-1 flex gap-2">
-                                                            <span className="font-bold text-cyan-400">{opt.key}.</span> 
-                                                            <span dangerouslySetInnerHTML={{ __html: opt.text }}/>
-                                                        </span>
-                                                        <div className="flex gap-2 text-xs shrink-0 w-full sm:w-auto">
-                                                            <div className="flex-1 sm:flex-none bg-black/40 px-4 py-2 rounded-lg text-center border border-white/5">
-                                                                <span className="text-gray-500 text-[9px] uppercase block mb-1">Bạn chọn</span>
-                                                                <span className={`font-black ${subCorrect ? 'text-emerald-400' : 'text-red-400'}`}>{myChoice === true ? 'ĐÚNG' : myChoice === false ? 'SAI' : 'Trống'}</span>
-                                                            </div>
-                                                            <div className="flex-1 sm:flex-none bg-black/40 px-4 py-2 rounded-lg text-center border border-white/5">
-                                                                <span className="text-gray-500 text-[9px] uppercase block mb-1">Đáp án</span>
-                                                                <span className="font-black text-cyan-400">{opt.isCorrect ? 'ĐÚNG' : 'SAI'}</span>
-                                                            </div>
+                                                        <div className="flex-1 sm:flex-none bg-white px-4 py-2 rounded-xl text-center border-2 border-[#e5e5e5]">
+                                                            <span className="text-[#afafaf] text-[10px] font-black uppercase tracking-widest block mb-1">ĐÁP ÁN ĐÚNG</span>
+                                                            <span className="font-black text-[#1cb0f6]">{opt.isCorrect ? 'ĐÚNG' : 'SAI'}</span>
                                                         </div>
                                                     </div>
-                                                )
-                                            })}
-                                        </div>
+                                                </div>
+                                            )
+                                        })}
                                     </div>
-                                )
-                            }
-                            return null;
-                        })}
-                    </div>
+                                </div>
+                            )
+                        }
+                        return null;
+                    })}
                 </div>
             </div>
         )}
       </main>
-
-      {/* --- FOOTER ĐIỀU HƯỚNG BÀI THI --- */}
-      {screen === 'exam' && currentQ && (
-          <div className="fixed bottom-8 left-0 right-0 flex justify-center z-50 pointer-events-none">
-              <div className="pointer-events-auto bg-[#18181b]/90 backdrop-blur-2xl border border-white/10 rounded-full p-2 flex items-center gap-4 shadow-[0_20px_50px_rgba(0,0,0,0.8)] ring-1 ring-white/5">
-                  <button onClick={handlePrevQuestion} disabled={currentQuestionIndex === 0} className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${currentQuestionIndex === 0 ? 'text-gray-600' : 'bg-white/5 text-white hover:bg-white/10 hover:scale-110'}`}><ChevronLeft size={24}/></button>
-                  <button onClick={() => setShowQuestionGrid(true)} className="h-12 px-6 rounded-full bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white flex items-center gap-3 font-bold shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all hover:scale-105 active:scale-95 group"><span className="text-lg tracking-widest">{currentQuestionIndex + 1}<span className="text-white/40 text-sm mx-1">/</span><span className="text-sm opacity-70">{questions.length}</span></span><Grid size={18} className="opacity-70 group-hover:rotate-90 transition-transform"/></button>
-                  {currentQuestionIndex < questions.length - 1 ? (<button onClick={handleNextQuestion} className="w-12 h-12 rounded-full bg-white/5 text-white hover:bg-white/10 hover:scale-110 flex items-center justify-center transition-all"><ChevronRight size={24}/></button>) : (<button onClick={handleSubmit} className="h-12 px-6 rounded-full bg-white text-black font-black text-xs hover:scale-105 transition-all">NỘP</button>)}
-                  <div className="w-[1px] h-6 bg-white/10"></div>
-                  <button onClick={() => handleCheckQuestion(currentQ.id)} className={`w-12 h-12 rounded-full flex items-center justify-center text-white shadow-lg transition-all duration-300 active:scale-90 hover:scale-110 ${checkError === currentQ.id ? 'bg-orange-500 shadow-[0_0_15px_orange]' : 'bg-purple-600 shadow-[0_0_15px_purple]'}`}>{checkError === currentQ.id ? <RefreshCcw size={20}/> : <Eye size={20}/>}</button>
-              </div>
-          </div>
-      )}
     </div>
   );
 }
