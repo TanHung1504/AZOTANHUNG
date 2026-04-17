@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import mammoth from 'mammoth';
+import confetti from 'canvas-confetti';
 import { 
   Upload, Clock, CheckCircle2, XCircle, FileText, Play, RotateCcw, 
   Eye, ToggleLeft, ToggleRight, Edit3, Save, ArrowRight, 
@@ -9,9 +10,9 @@ import {
   Maximize, Minimize, ZoomIn, ZoomOut, List, ChevronUp, ChevronDown, Grid, User, Terminal, Check, Volume2, VolumeX, Download
 } from 'lucide-react';
 
-// --- CẤU HÌNH CLOUD ---
-const API_KEY = "$2a$10$fjHmbz8kgn.VwPPA6UbUM.kw9AlRViTFZ7p4nLlXA3xSvKzCMGOg."; 
-const BIN_URL = "https://api.jsonbin.io/v3/b";
+// --- CẤU HÌNH GOOGLE FIREBASE (ĐÃ CHUYỂN ĐỔI) ---
+// Dán link Realtime Database của bạn vào đây (Nhớ thêm "/exams" ở cuối)
+const FIREBASE_URL = "https://azotahung-default-rtdb.asia-southeast1.firebasedatabase.app/"; 
 
 // --- SOUND ASSETS ---
 const SOUNDS = {
@@ -56,7 +57,6 @@ export default function App() {
   const [timeLeft, setTimeLeft] = useState(0); 
   const [examName, setExamName] = useState("Bài Thi Trắc Nghiệm");
   const [scoreData, setScoreData] = useState(null);
-  
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [shareLink, setShareLink] = useState(""); 
@@ -65,8 +65,6 @@ export default function App() {
   const [isGuestMode, setIsGuestMode] = useState(false); 
   const [showQuestionGrid, setShowQuestionGrid] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  
-  // --- STATE PWA ---
   const [installPrompt, setInstallPrompt] = useState(null);
 
   const timerRef = useRef(null);
@@ -79,7 +77,21 @@ export default function App() {
       audio.play().catch(e => console.log("Audio play error:", e));
   };
 
-  // --- LOGIC PWA INSTALL ---
+  const triggerConfetti = () => {
+      var duration = 3 * 1000;
+      var animationEnd = Date.now() + duration;
+      var defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+      var random = function(min, max) { return Math.random() * (max - min) + min; };
+      var interval = setInterval(function() {
+        var timeLeft = animationEnd - Date.now();
+        if (timeLeft <= 0) { return clearInterval(interval); }
+        var particleCount = 50 * (timeLeft / duration);
+        confetti(Object.assign({}, defaults, { particleCount, origin: { x: random(0.1, 0.3), y: Math.random() - 0.2 } }));
+        confetti(Object.assign({}, defaults, { particleCount, origin: { x: random(0.7, 0.9), y: Math.random() - 0.2 } }));
+      }, 250);
+  };
+
+  // --- LOGIC PWA ---
   useEffect(() => {
     const handler = (e) => {
       e.preventDefault();
@@ -93,24 +105,10 @@ export default function App() {
     if (!installPrompt) return;
     installPrompt.prompt();
     const { outcome } = await installPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setInstallPrompt(null);
-    }
+    if (outcome === 'accepted') setInstallPrompt(null);
   };
 
-  // Auto scroll footer
-  useEffect(() => {
-      if (scrollRef.current) {
-          const activeBtn = scrollRef.current.querySelector('.active-q-btn');
-          if (activeBtn) activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-      }
-  }, [currentQuestionIndex]);
-
-  useEffect(() => {
-      if (window.innerWidth > 1024) setIsSidebarOpen(true);
-  }, []);
-
-  // --- LOGIC FETCH DATA ---
+  // --- LOGIC TẢI ĐỀ TỪ LINK FIREBASE ---
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const binId = params.get('id');
@@ -118,25 +116,53 @@ export default function App() {
     if (binId) {
         setIsLoading(true);
         setIsGuestMode(true); 
-        fetch(`${BIN_URL}/${binId}`, { headers: { 'X-Master-Key': API_KEY } })
+        // Firebase sử dụng .json ở cuối URL
+        fetch(`${FIREBASE_URL}/${binId}.json`)
         .then(res => res.json())
         .then(data => {
-            const record = data.record;
-            if(record) {
-                setExamName(record.name);
+            if(data) {
+                setExamName(data.name);
                 const isPractice = mode === 'practice';
                 setIsPracticeMode(isPractice);
-                startReviewMode(record.qs); 
+                setQuestions(data.qs);
+                setScreen('edit'); 
+            } else {
+                alert("Không tìm thấy đề thi!");
             }
         })
-        .catch(err => alert("Lỗi tải đề! Link có thể bị hỏng."))
+        .catch(err => alert("Lỗi tải đề từ Firebase!"))
         .finally(() => setIsLoading(false));
     }
   }, []);
 
-  const startReviewMode = (qs) => {
-      setQuestions(qs);
-      setScreen('edit'); 
+  // --- LOGIC TẠO LINK CHIA SẺ FIREBASE ---
+  const handleCreateShareLink = async () => {
+      if (!FIREBASE_URL || FIREBASE_URL.includes("PROJECT_ID")) {
+          return alert("Bạn chưa cấu hình FIREBASE_URL ở dòng 14!");
+      }
+      setIsLoading(true);
+      const examData = { name: examName, qs: questions };
+
+      try {
+          const response = await fetch(`${FIREBASE_URL}.json`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(examData)
+          });
+
+          const data = await response.json();
+          if (!response.ok) throw new Error("Lỗi máy chủ Firebase");
+
+          // Firebase trả về ID nằm trong trường "name"
+          let url = `${window.location.origin}${window.location.pathname}?id=${data.name}`;
+          if (shareAsPractice) url += "&mode=practice";
+          setShareLink(url);
+          
+      } catch (error) {
+          alert(`Tạo link thất bại!\nLỗi: ${error.message}`);
+      } finally {
+          setIsLoading(false);
+      }
   };
 
   const startExamFinal = (qsInput = questions, forcePractice = isPracticeMode) => {
@@ -157,13 +183,9 @@ export default function App() {
             const shuffledOptions = shuffle(q.options);
             const fixedKeyOptions = shuffledOptions.map((opt, index) => {
                 let newKey = "";
-                if (q.type === 'single') {
-                    newKey = String.fromCharCode(65 + index); 
-                } else if (q.type === 'group') {
-                    newKey = String.fromCharCode(97 + index);
-                } else {
-                    newKey = opt.key;
-                }
+                if (q.type === 'single') newKey = String.fromCharCode(65 + index); 
+                else if (q.type === 'group') newKey = String.fromCharCode(97 + index);
+                else newKey = opt.key;
                 return { ...opt, key: newKey };
             });
             return { ...q, options: fixedKeyOptions };
@@ -180,52 +202,6 @@ export default function App() {
     setIsPracticeMode(forcePractice);
     setScreen('exam');
     setShowQuestionGrid(false); 
-  };
-
-  const handleCreateShareLink = async () => {
-      if(API_KEY.length < 10) return alert("Chưa nhập API Key!");
-      
-      // Tính toán thử dung lượng file gửi đi (để cảnh báo)
-      const examData = { name: examName, qs: questions };
-      const payloadSize = JSON.stringify(examData).length;
-      
-      // Nếu dung lượng vượt quá 100KB (giới hạn của JSONBin free)
-      if (payloadSize > 100000) {
-          alert(`CẢNH BÁO: Đề thi của bạn quá nặng (${Math.round(payloadSize/1024)} KB) do chứa nhiều hình ảnh.\nMáy chủ miễn phí chỉ nhận tối đa 100KB.\n\nHãy thử: Xóa bớt ảnh trong file Word hoặc làm một file Word CHỈ CÓ CHỮ để test thử nhé!`);
-          return; // Dừng lại không gửi nữa
-      }
-
-      setIsLoading(true);
-
-      try {
-          const response = await fetch(BIN_URL, {
-              method: 'POST',
-              headers: { 
-                  'Content-Type': 'application/json', 
-                  'X-Master-Key': API_KEY, 
-                  'X-Bin-Private': 'false' 
-              },
-              body: JSON.stringify(examData)
-          });
-
-          const data = await response.json();
-
-          // Nếu máy chủ báo lỗi (VD: Sai API Key, hết lượt)
-          if (!response.ok) {
-              throw new Error(data.message || "Từ chối truy cập từ máy chủ.");
-          }
-
-          // Nếu thành công
-          let url = `${window.location.origin}${window.location.pathname}?id=${data.metadata.id}`;
-          if (shareAsPractice) url += "&mode=practice";
-          setShareLink(url);
-          
-      } catch (error) {
-          console.error("Lỗi chi tiết:", error);
-          alert(`Tạo link thất bại!\nNguyên nhân: ${error.message}\n\n👉 Mẹo: Hãy kiểm tra lại API Key xem đã thay đúng của bạn chưa nhé!`);
-      } finally {
-          setIsLoading(false);
-      }
   };
 
   useEffect(() => {
@@ -282,9 +258,9 @@ export default function App() {
     alert("Đã cập nhật đáp án!");
   };
 
-  const handleCheckQuestion = (qId) => {
+  const handleCheckQuestion = (qId, overrideAns = undefined) => {
       const q = questions.find(item => item.id === qId);
-      const uAns = userAnswers[qId];
+      const uAns = overrideAns !== undefined ? overrideAns : userAnswers[qId];
       let isCorrect = false;
 
       if (q.type === 'single') {
@@ -308,6 +284,9 @@ export default function App() {
           playSound('error');
           setCheckError(qId);
       }
+      if (overrideAns !== undefined) {
+          setUserAnswers(prev => ({ ...prev, [qId]: overrideAns }));
+      }
   };
 
   const handleNextQuestion = () => { if (currentQuestionIndex < questions.length - 1) { setCurrentQuestionIndex(prev => prev + 1); window.scrollTo(0, 0); } };
@@ -323,9 +302,7 @@ export default function App() {
         styleMap: ["u => u", "b => b", "i => i", "strike => strike", "highlight => mark"],
         convertImage: mammoth.images.imgElement((image) => {
           return image.read("base64").then((imageBuffer) => {
-            return {
-              src: "data:" + image.contentType + ";base64," + imageBuffer
-            };
+            return { src: "data:" + image.contentType + ";base64," + imageBuffer };
           });
         })
       };
@@ -399,6 +376,7 @@ export default function App() {
   };
   const handleSubmit = () => { 
       playSound('finish');
+      triggerConfetti();
       clearInterval(timerRef.current); 
       calculateScore(); 
       setScreen('result'); 
@@ -418,14 +396,22 @@ export default function App() {
   useEffect(() => {
     const handleKeyDown = (e) => {
         if (screen !== 'exam') return;
-        if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
         const currentQ = questions[currentQuestionIndex]; if (!currentQ) return;
-        if (e.key === 'ArrowRight') handleNextQuestion();
-        if (e.key === 'ArrowLeft') handlePrevQuestion();
+        const isTyping = ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
         if (e.key === 'Enter') {
-            if (isPracticeMode && !checkedQuestions[currentQ.id]) { handleCheckQuestion(currentQ.id); }
+            e.preventDefault(); 
+            if (isTyping && e.target) {
+                if (isPracticeMode && !checkedQuestions[currentQ.id]) { handleCheckQuestion(currentQ.id, e.target.value); } 
+                else { if (currentQuestionIndex < questions.length - 1) handleNextQuestion(); else handleSubmit(); }
+                return;
+            }
+            if (isPracticeMode && !checkedQuestions[currentQ.id]) { handleCheckQuestion(currentQ.id); } 
+            else { if (currentQuestionIndex < questions.length - 1) handleNextQuestion(); else handleSubmit(); }
             return;
         }
+        if (isTyping) return;
+        if (e.key === 'ArrowRight') handleNextQuestion();
+        if (e.key === 'ArrowLeft') handlePrevQuestion();
         if (['1', '2', '3', '4'].includes(e.key) && currentQ.type === 'single') {
             const idx = parseInt(e.key) - 1;
             if (currentQ.options[idx]) { handleAnswerChange(currentQ.id, currentQ.options[idx].key, 'single'); }
@@ -433,26 +419,16 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [screen, currentQuestionIndex, questions, isPracticeMode, checkedQuestions, checkError]);
-
-  const currentQ = questions[currentQuestionIndex];
+  }, [screen, currentQuestionIndex, questions, isPracticeMode, checkedQuestions, checkError, userAnswers]);
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>;
 
-  // --- XÁC ĐỊNH CHẾ ĐỘ MÀU ---
   const isExamMode = screen === 'exam' || screen === 'result';
-  const containerClass = isExamMode 
-    ? "min-h-screen font-sans text-gray-100 bg-[#09090b] selection:bg-cyan-500 selection:text-white"
-    : "min-h-screen font-sans text-gray-800 bg-[#f3f4f6]";
-
-  const headerClass = isExamMode
-    ? "fixed top-0 left-0 right-0 z-50 h-16 px-4 flex justify-between items-center backdrop-blur-xl bg-black/40 border-b border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.5)]"
-    : "fixed top-0 left-0 right-0 z-50 h-16 px-4 flex justify-between items-center bg-white border-b border-gray-200 shadow-sm";
+  const containerClass = isExamMode ? "min-h-screen font-sans text-gray-100 bg-[#09090b] selection:bg-cyan-500 selection:text-white" : "min-h-screen font-sans text-gray-800 bg-[#f3f4f6]";
+  const headerClass = isExamMode ? "fixed top-0 left-0 right-0 z-50 h-16 px-4 flex justify-between items-center backdrop-blur-xl bg-black/40 border-b border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.5)]" : "fixed top-0 left-0 right-0 z-50 h-16 px-4 flex justify-between items-center bg-white border-b border-gray-200 shadow-sm";
 
   return (
     <div className={containerClass}>
-      
-      {/* --- HEADER --- */}
       <header className={headerClass}>
         <div className="flex items-center gap-4">
             {screen === 'exam' ? (
@@ -466,36 +442,24 @@ export default function App() {
                 </div>
             )}
         </div>
-
         <div className="flex items-center gap-3">
             {installPrompt && (
-                <button onClick={handleInstallApp} className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-bold text-xs shadow-lg animate-pulse hover:scale-105 transition-transform">
-                    <Download size={14}/> CÀI APP
-                </button>
+                <button onClick={handleInstallApp} className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full font-bold text-xs shadow-lg animate-pulse hover:scale-105 transition-transform"><Download size={14}/> CÀI APP</button>
             )}
-
             {screen === 'exam' && (
                 <>
-                    <button onClick={() => setIsMuted(!isMuted)} className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all border border-white/5">
-                        {isMuted ? <VolumeX size={18}/> : <Volume2 size={18}/>}
-                    </button>
+                    <button onClick={() => setIsMuted(!isMuted)} className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all border border-white/5">{isMuted ? <VolumeX size={18}/> : <Volume2 size={18}/>}</button>
                     <div className="flex items-center gap-2 text-cyan-300 bg-cyan-950/30 px-3 py-1.5 rounded-full border border-cyan-500/20 shadow-[0_0_10px_rgba(6,182,212,0.1)]">
-                        <Clock size={16}/>
-                        <span className="font-mono font-bold">{isPracticeMode ? "∞" : formatTime(timeLeft)}</span>
+                        <Clock size={16}/><span className="font-mono font-bold">{isPracticeMode ? "∞" : formatTime(timeLeft)}</span>
                     </div>
-                    <button onClick={() => { if(confirm("Làm lại từ đầu?")) startExamFinal(questions); }} className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all border border-white/5" title="Reset">
-                        <RotateCcw size={18}/>
-                    </button>
+                    <button onClick={() => { if(confirm("Làm lại từ đầu?")) startExamFinal(questions); }} className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all border border-white/5"><RotateCcw size={18}/></button>
                 </>
             )}
             {!isGuestMode && screen !== 'exam' && screen !== 'upload' && (<button onClick={() => setScreen('upload')} className="text-gray-500 font-bold text-sm">Trang chủ</button>)}
         </div>
       </header>
 
-      {/* --- MAIN CONTENT --- */}
       <main className="pt-24 pb-32 px-4 h-screen overflow-y-auto no-scrollbar">
-        
-        {/* --- UPLOAD SCREEN --- */}
         {screen === 'upload' && !isGuestMode && (
           <div className="flex flex-col items-center justify-center min-h-[80vh] animate-fade-in-up">
              <div className="w-full max-w-lg bg-white p-8 rounded-3xl shadow-xl border border-gray-100 text-center">
@@ -515,9 +479,8 @@ export default function App() {
           </div>
         )}
 
-        {/* --- EDIT SCREEN (CHỦ ĐỀ) --- */}
         {screen === 'edit' && !isGuestMode && (
-          <div className="flex flex-col lg:flex-row gap-6">
+          <div className="flex flex-col lg:flex-row gap-6 max-w-6xl mx-auto">
              <div className="flex-1 bg-white rounded-2xl shadow-sm p-4 sm:p-6 border border-gray-100">
                <div className="flex justify-between items-center mb-4 pb-4 border-b">
                  <h2 className="text-lg font-bold text-gray-800 flex gap-2"><Edit3 size={20} className="text-indigo-500"/> Duyệt Đề</h2>
@@ -533,8 +496,7 @@ export default function App() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                         {q.options?.map(opt => (
                             <div key={opt.key} onClick={() => toggleCorrectAnswer(idx, opt.key)} className={`p-2 rounded border cursor-pointer flex items-center gap-2 ${opt.isCorrect ? 'bg-green-50 border-green-500 text-green-700 font-bold' : 'hover:bg-gray-50'}`}>
-                                <span className={`w-5 h-5 flex items-center justify-center rounded border text-xs ${opt.isCorrect ? 'bg-green-500 text-white border-green-500' : 'bg-white'}`}>{opt.key}</span>
-                                {opt.text}
+                                <span className={`w-5 h-5 flex items-center justify-center rounded border text-xs ${opt.isCorrect ? 'bg-green-500 text-white border-green-500' : 'bg-white'}`}>{opt.key}</span>{opt.text}
                             </div>
                         ))}
                         {q.type === 'text' && <input type="text" value={q.correctAnswer} onChange={(e) => handleTextAnswerEdit(idx, e.target.value)} className="border rounded p-2 w-full font-bold text-green-700"/>}
@@ -543,29 +505,26 @@ export default function App() {
                  ))}
                </div>
              </div>
-
              <div className="lg:w-80 flex flex-col gap-4">
                 <div className="bg-indigo-600 rounded-2xl shadow-lg p-6 text-white">
                     <h3 className="font-bold text-xl mb-4 text-center">Chia Sẻ & Thi</h3>
                     <div className="mb-4 space-y-3">
                         <div className="flex items-center gap-2 mb-2 bg-white/20 p-2 rounded-lg cursor-pointer hover:bg-white/30 transition-all" onClick={() => setShareAsPractice(!shareAsPractice)}>
-                            <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${shareAsPractice ? 'bg-green-400 border-green-400' : 'border-white/50'}`}>
-                                {shareAsPractice && <Check size={14} className="text-white" strokeWidth={3} />}
-                            </div>
+                            <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${shareAsPractice ? 'bg-green-400 border-green-400' : 'border-white/50'}`}>{shareAsPractice && <Check size={14} className="text-white" strokeWidth={3} />}</div>
                             <span className="text-sm font-bold text-white/90">Link cho Luyện tập</span>
                         </div>
                          {!shareLink ? (
-                            <button onClick={handleCreateShareLink} className="w-full bg-white text-indigo-700 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-sm hover:bg-gray-50 mb-3"><Cloud size={18}/> Tạo Link Ngay</button>
+                            <button onClick={handleCreateShareLink} className="w-full bg-white text-indigo-700 py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-sm hover:bg-gray-50 mb-3">
+                                {isLoading ? "Đang tạo..." : <><Cloud size={18}/> Tạo Link Ngay</>}
+                            </button>
                         ) : (
                             <div className="bg-white/20 p-3 rounded-xl mb-3"><div className="bg-white text-indigo-900 p-2 rounded text-xs truncate mb-2">{shareLink}</div><button onClick={copyToClipboard} className="w-full bg-green-400 hover:bg-green-500 text-white py-2 rounded-lg font-bold text-sm">Sao chép</button></div>
                         )}
                     </div>
                     <button onClick={() => startExamFinal(questions)} className="w-full bg-yellow-400 hover:bg-yellow-500 text-yellow-900 py-3 rounded-xl font-bold text-lg flex items-center justify-center gap-2 shadow-lg animate-pulse"><Play size={20}/> VÀO THI NGAY</button>
                 </div>
-                
                 <div className="bg-white rounded-2xl shadow-sm p-4 border border-gray-100">
                     <div className="font-bold text-gray-700 mb-2 flex gap-2"><MousePointerClick size={18}/> Sửa Key Nhanh</div>
-                    <div className="bg-indigo-50 rounded-xl p-3 mb-2 text-xs text-indigo-600 leading-relaxed border border-indigo-100"><b>Cú pháp:</b><br/>• 1A, 2B, 3C...<br/>• 4: Đáp án chữ</div>
                     <textarea className="w-full p-2 border rounded-lg text-sm h-24 font-mono mb-2" placeholder="1A&#10;2B..." value={quickKeyInput} onChange={(e) => setQuickKeyInput(e.target.value)}></textarea>
                     <button onClick={applyQuickKeys} className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded-lg font-bold text-sm">Cập nhật</button>
                 </div>
@@ -573,30 +532,20 @@ export default function App() {
           </div>
         )}
 
-        {/* --- SẢNH CHỜ CHO KHÁCH (GUEST LOBBY) --- */}
         {screen === 'edit' && isGuestMode && (
             <div className="flex flex-col items-center justify-center min-h-[80vh] animate-fade-in-up">
                 <div className="bg-[#18181b] p-8 rounded-3xl border border-white/10 shadow-2xl text-center max-w-md w-full relative overflow-hidden group">
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
-                    <div className="absolute -top-20 -left-20 w-40 h-40 bg-purple-500/20 rounded-full blur-[80px] group-hover:bg-purple-500/30 transition-all duration-1000"></div>
-                    
                     <h2 className="text-3xl font-black text-white mb-2 tracking-tight">{examName}</h2>
                     <div className="flex justify-center gap-4 mb-8">
                         <span className="px-3 py-1 bg-white/5 rounded-full text-xs font-mono text-gray-400 border border-white/5">{questions.length} câu hỏi</span>
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold border ${isPracticeMode ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
-                            {isPracticeMode ? 'Luyện Tập' : 'Thi Thử'}
-                        </span>
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold border ${isPracticeMode ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>{isPracticeMode ? 'Luyện Tập' : 'Thi Thử'}</span>
                     </div>
-
-                    <button onClick={() => startExamFinal(questions)} className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white py-4 rounded-xl font-bold text-lg shadow-[0_0_30px_rgba(99,102,241,0.4)] hover:shadow-[0_0_50px_rgba(99,102,241,0.6)] transition-all transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3">
-                        <Play size={24} fill="currentColor"/> VÀO THI NGAY
-                    </button>
-                    <p className="mt-4 text-xs text-gray-500">Hệ thống trắc nghiệm Azota Ultra</p>
+                    <button onClick={() => startExamFinal(questions)} className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white py-4 rounded-xl font-bold text-lg shadow-[0_0_30px_rgba(99,102,241,0.4)] transition-all flex items-center justify-center gap-3"><Play size={24} fill="currentColor"/> VÀO THI NGAY</button>
                 </div>
             </div>
         )}
 
-        {/* --- EXAM SCREEN --- */}
         {screen === 'exam' && currentQ && (
             <div className="max-w-2xl mx-auto relative mt-4">
                 {showQuestionGrid && (
@@ -608,28 +557,20 @@ export default function App() {
                             </div>
                             <div className="grid grid-cols-5 gap-3 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
                                 {questions.map((q, idx) => {
-                                    const isDone = checkedQuestions[q.id];
-                                    const isError = checkError === q.id;
-                                    const isCurrent = idx === currentQuestionIndex;
-                                    
+                                    const isDone = checkedQuestions[q.id], isError = checkError === q.id, isCurrent = idx === currentQuestionIndex;
                                     let style = "bg-white/5 text-gray-400 border-transparent hover:bg-white/10";
                                     if (isCurrent) style = "bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.5)] border-indigo-400 scale-110";
                                     else if (isDone) style = "bg-green-500/20 text-green-400 border-green-500/30";
                                     else if (isError) style = "bg-red-500/20 text-red-400 border-red-500/30";
-
-                                    return (
-                                        <button key={q.id} onClick={() => { setCurrentQuestionIndex(idx); setShowQuestionGrid(false); }} className={`h-10 rounded-lg border flex items-center justify-center text-sm font-bold transition-all ${style}`}>{idx + 1}</button>
-                                    )
+                                    return <button key={q.id} onClick={() => { setCurrentQuestionIndex(idx); setShowQuestionGrid(false); }} className={`h-10 rounded-lg border flex items-center justify-center text-sm font-bold transition-all ${style}`}>{idx + 1}</button>
                                 })}
                             </div>
-                            <button onClick={handleSubmit} className="w-full mt-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3.5 rounded-xl font-bold hover:shadow-[0_0_20px_rgba(79,70,229,0.4)] transition-all">NỘP BÀI NGAY</button>
+                            <button onClick={handleSubmit} className="w-full mt-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3.5 rounded-xl font-bold transition-all">NỘP BÀI NGAY</button>
                         </div>
                     </div>
                 )}
-
                 <div className="bg-[#18181b]/60 backdrop-blur-xl border border-white/10 rounded-[2rem] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] min-h-[500px] flex flex-col relative transition-all duration-500">
                     <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-70"></div>
-                    
                     <div className="p-6 sm:p-8 pb-2">
                         <div className="flex justify-between items-start mb-4">
                             <div className="text-cyan-400 text-xs font-black uppercase tracking-[0.2em] bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/20 shadow-[0_0_10px_rgba(6,182,212,0.1)]">Câu {currentQuestionIndex + 1}</div>
@@ -637,155 +578,80 @@ export default function App() {
                         </div>
                         <div className="text-white text-lg sm:text-2xl font-medium leading-relaxed [&>img]:rounded-xl [&>img]:my-2 [&>img]:shadow-lg" dangerouslySetInnerHTML={{ __html: currentQ.question.replace(/^(Câu)?\s*\d+[\.:]\s*/i, '') }} />
                     </div>
-
-                    <div className="flex items-center gap-4 px-8 py-4">
-                        <div className="h-px bg-white/5 flex-1"></div>
-                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em]">Select Answer</span>
-                        <div className="h-px bg-white/5 flex-1"></div>
-                    </div>
-
+                    <div className="flex items-center gap-4 px-8 py-4"><div className="h-px bg-white/5 flex-1"></div><span className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em]">Select Answer</span><div className="h-px bg-white/5 flex-1"></div></div>
                     <div className="px-6 sm:px-8 pb-24 flex-1">
-                        {isPracticeMode && checkedQuestions[currentQ.id] && (
-                             <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center gap-3 animate-bounce shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-                                <div className="p-2 bg-emerald-500/20 rounded-full text-emerald-400"><Check size={20}/></div>
-                                <div>
-                                    <h4 className="font-bold text-emerald-300">Chính xác! Xuất sắc.</h4>
-                                    <p className="text-xs text-emerald-400/70">Tiếp tục phát huy nhé!</p>
-                                </div>
-                             </div>
-                        )}
-                        {checkError === currentQ.id && (
-                            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-2xl flex items-center gap-3 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.2)]">
-                                <div className="p-2 bg-red-500/20 rounded-full text-red-400"><AlertTriangle size={20}/></div>
-                                <span className="font-bold text-sm text-red-300">Chưa đúng! Thử lại xem sao.</span>
-                            </div>
-                        )}
-
+                        {isPracticeMode && checkedQuestions[currentQ.id] && (<div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center gap-3 animate-bounce shadow-[0_0_20px_rgba(16,185,129,0.2)]"><div className="p-2 bg-emerald-500/20 rounded-full text-emerald-400"><Check size={20}/></div><div><h4 className="font-bold text-emerald-300">Chính xác! Xuất sắc.</h4><p className="text-xs text-emerald-400/70">Tiếp tục phát huy nhé!</p></div></div>)}
+                        {checkError === currentQ.id && (<div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-2xl flex items-center gap-3 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.2)]"><div className="p-2 bg-red-500/20 rounded-full text-red-400"><AlertTriangle size={20}/></div><span className="font-bold text-sm text-red-300">Chưa đúng! Thử lại xem sao.</span></div>)}
                         <div className="flex flex-col gap-4">
                             {currentQ.type === 'single' && currentQ.options.map((opt) => {
-                                const uAns = userAnswers[currentQ.id];
-                                const isChecked = isPracticeMode && checkedQuestions[currentQ.id];
-                                const isError = checkError === currentQ.id;
-                                const isSelected = uAns === opt.key;
-
-                                let wrapperStyle = "border-white/5 bg-white/5 hover:bg-white/10 hover:border-white/10";
-                                let keyStyle = "bg-black/30 text-gray-400 border border-white/5";
-                                let textStyle = "text-gray-300";
-
-                                if (isChecked) {
-                                    if (opt.isCorrect) {
-                                        wrapperStyle = "border-emerald-500/50 bg-emerald-500/10 shadow-[0_0_25px_rgba(16,185,129,0.3)]";
-                                        keyStyle = "bg-emerald-500 text-black font-bold border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.5)]";
-                                        textStyle = "text-emerald-300 font-bold";
-                                    } else if (isSelected) {
-                                        wrapperStyle = "border-transparent bg-white/5 opacity-30";
-                                    } else {
-                                        wrapperStyle = "border-transparent bg-transparent opacity-20";
-                                    }
-                                } else if (isError && isSelected) {
-                                    wrapperStyle = "border-red-500/50 bg-red-500/10 shadow-[0_0_25px_rgba(239,68,68,0.3)]";
-                                    keyStyle = "bg-red-500 text-white border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.5)]";
-                                    textStyle = "text-red-300 font-bold";
-                                } else if (isSelected) {
-                                    wrapperStyle = "border-indigo-500/50 bg-indigo-500/20 shadow-[0_0_20px_rgba(99,102,241,0.2)] scale-[1.02]";
-                                    keyStyle = "bg-indigo-500 text-white font-bold border-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.5)]";
-                                    textStyle = "text-indigo-200 font-bold";
-                                }
-
-                                return (
-                                    <div key={opt.key} onClick={() => handleAnswerChange(currentQ.id, opt.key, 'single')} 
-                                         className={`flex items-center p-4 rounded-2xl border transition-all cursor-pointer group active:scale-[0.97] duration-200 ${wrapperStyle}`}>
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm mr-4 transition-all shrink-0 ${keyStyle}`}>
-                                            {opt.key}
-                                        </div>
-                                        <div className={`flex-1 text-base transition-all ${textStyle}`}>
-                                            {opt.text}
-                                        </div>
-                                    </div>
-                                )
+                                const uAns = userAnswers[currentQ.id], isChecked = isPracticeMode && checkedQuestions[currentQ.id], isError = checkError === currentQ.id, isSelected = uAns === opt.key;
+                                let wrapperStyle = "border-white/5 bg-white/5 hover:bg-white/10 hover:border-white/10", keyStyle = "bg-black/30 text-gray-400 border border-white/5", textStyle = "text-gray-300";
+                                if (isChecked) { if (opt.isCorrect) { wrapperStyle = "border-emerald-500/50 bg-emerald-500/10 shadow-[0_0_25px_rgba(16,185,129,0.3)]"; keyStyle = "bg-emerald-500 text-black font-bold border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.5)]"; textStyle = "text-emerald-300 font-bold"; } else if (isSelected) { wrapperStyle = "border-transparent bg-white/5 opacity-30"; } else { wrapperStyle = "border-transparent bg-transparent opacity-20"; } } 
+                                else if (isError && isSelected) { wrapperStyle = "border-red-500/50 bg-red-500/10 shadow-[0_0_25px_rgba(239,68,68,0.3)]"; keyStyle = "bg-red-500 text-white border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.5)]"; textStyle = "text-red-300 font-bold"; } 
+                                else if (isSelected) { wrapperStyle = "border-indigo-500/50 bg-indigo-500/20 shadow-[0_0_20px_rgba(99,102,241,0.2)] scale-[1.02]"; keyStyle = "bg-indigo-500 text-white font-bold border-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.5)]"; textStyle = "text-indigo-200 font-bold"; }
+                                return <div key={opt.key} onClick={() => handleAnswerChange(currentQ.id, opt.key, 'single')} className={`flex items-center p-4 rounded-2xl border transition-all cursor-pointer group active:scale-[0.97] duration-200 ${wrapperStyle}`}><div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm mr-4 transition-all shrink-0 ${keyStyle}`}>{opt.key}</div><div className={`flex-1 text-base transition-all ${textStyle}`}>{opt.text}</div></div>
                             })}
-
                             {currentQ.type === 'group' && currentQ.options.map((opt) => (
-                                <div key={opt.key} className="p-4 border border-white/5 rounded-2xl bg-white/5 flex justify-between items-center hover:bg-white/10 transition-colors">
-                                     <div className="font-medium text-gray-200"><span className="font-bold text-cyan-400 mr-2">{opt.key}.</span>{opt.text}</div>
-                                     <div className="flex gap-2">
-                                         {['ĐÚNG', 'SAI'].map((label, i) => {
-                                             const val = i === 0;
-                                             const myChoice = userAnswers[currentQ.id]?.[opt.key];
-                                             const isLocked = isPracticeMode && checkedQuestions[currentQ.id];
-                                             return (
-                                                 <button onClick={() => !isLocked && handleAnswerChange(currentQ.id, val, 'group', opt.key)}
-                                                     className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${myChoice === val ? (val ? 'bg-blue-600 text-white shadow-lg' : 'bg-pink-600 text-white shadow-lg') : 'bg-black/30 text-gray-500 border border-white/5'}`}>
-                                                     {label}
-                                                 </button>
-                                             )
-                                         })}
-                                     </div>
-                                </div>
+                                <div key={opt.key} className="p-4 border border-white/5 rounded-2xl bg-white/5 flex justify-between items-center hover:bg-white/10 transition-colors"><div className="font-medium text-gray-200"><span className="font-bold text-cyan-400 mr-2">{opt.key}.</span>{opt.text}</div><div className="flex gap-2">
+                                    {['ĐÚNG', 'SAI'].map((label, i) => {
+                                        const val = i === 0, myChoice = userAnswers[currentQ.id]?.[opt.key], isLocked = isPracticeMode && checkedQuestions[currentQ.id];
+                                        return <button key={label} onClick={() => !isLocked && handleAnswerChange(currentQ.id, val, 'group', opt.key)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${myChoice === val ? (val ? 'bg-blue-600 text-white shadow-lg' : 'bg-pink-600 text-white shadow-lg') : 'bg-black/30 text-gray-500 border border-white/5'}`}>{label}</button>
+                                    })}
+                                </div></div>
                             ))}
-                            
-                            {currentQ.type === 'text' && (
-                               <input type="text" placeholder="Nhập đáp án của bạn..." className="w-full p-4 text-lg bg-black/30 border border-white/10 rounded-2xl text-white outline-none focus:border-cyan-500 focus:bg-black/50 transition-all placeholder-gray-600 shadow-inner" 
-                               value={userAnswers[currentQ.id] || ''} onChange={(e) => handleAnswerChange(currentQ.id, e.target.value, 'text')} />
-                           )}
+                            {currentQ.type === 'text' && <input type="text" placeholder="Nhập đáp án của bạn..." className="w-full p-4 text-lg bg-black/30 border border-white/10 rounded-2xl text-white outline-none focus:border-cyan-500 transition-all shadow-inner" value={userAnswers[currentQ.id] || ''} onChange={(e) => handleAnswerChange(currentQ.id, e.target.value, 'text')} />}
                         </div>
                     </div>
                 </div>
             </div>
         )}
 
-        {/* --- RESULT SCREEN --- */}
         {screen === 'result' && scoreData && (
-            <div className="max-w-lg mx-auto bg-slate-800/60 backdrop-blur-xl p-10 rounded-[3rem] border border-white/10 text-center mt-10 shadow-[0_0_60px_rgba(124,58,237,0.3)] relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/10 to-transparent pointer-events-none"></div>
-                <div className="w-24 h-24 bg-gradient-to-tr from-yellow-400 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(234,179,8,0.6)] ring-4 ring-yellow-500/20">
-                    <Trophy size={48} className="text-white fill-white/20"/>
-                </div>
-                <h2 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 mb-2 tracking-tighter">{scoreData.score}</h2>
-                <p className="text-indigo-300 mb-8 uppercase tracking-[0.3em] text-xs font-bold">Điểm Số Của Bạn</p>
-                <div className="grid grid-cols-2 gap-4 mb-8">
-                    <div className="bg-green-500/10 p-5 rounded-2xl border border-green-500/20 text-green-400 font-bold flex flex-col items-center">
-                        <span className="text-3xl">{scoreData.correctCount}</span>
-                        <span className="text-[10px] uppercase opacity-60 tracking-wider mt-1">Chính xác</span>
+            <div className="max-w-3xl mx-auto mt-10 pb-24 space-y-8 animate-fade-in-up">
+                <div className="bg-slate-800/60 backdrop-blur-xl p-10 rounded-[3rem] border border-white/10 text-center shadow-[0_0_60px_rgba(124,58,237,0.3)] relative overflow-hidden">
+                    <div className="w-24 h-24 bg-gradient-to-tr from-yellow-400 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(234,179,8,0.6)]"><Trophy size={48} className="text-white fill-white/20"/></div>
+                    <h2 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 mb-2 tracking-tighter">{scoreData.score}</h2>
+                    <p className="text-indigo-300 mb-8 uppercase tracking-[0.3em] text-xs font-bold">Điểm Số Của Bạn</p>
+                    <div className="grid grid-cols-2 gap-4 mb-8">
+                        <div className="bg-green-500/10 p-5 rounded-2xl border border-green-500/20 text-green-400 font-bold flex flex-col items-center"><span className="text-3xl">{scoreData.correctCount}</span><span className="text-[10px] uppercase opacity-60 tracking-wider mt-1">Chính xác</span></div>
+                        <div className="bg-red-500/10 p-5 rounded-2xl border border-red-500/20 text-red-400 font-bold flex flex-col items-center"><span className="text-3xl">{scoreData.total - scoreData.correctCount}</span><span className="text-[10px] uppercase opacity-60 tracking-wider mt-1">Chưa đúng</span></div>
                     </div>
-                    <div className="bg-red-500/10 p-5 rounded-2xl border border-red-500/20 text-red-400 font-bold flex flex-col items-center">
-                        <span className="text-3xl">{scoreData.total - scoreData.correctCount}</span>
-                        <span className="text-[10px] uppercase opacity-60 tracking-wider mt-1">Chưa đúng</span>
+                    <button onClick={() => startExamFinal(questions, false)} className="w-full bg-white text-black py-4 rounded-2xl font-black hover:scale-105 transition-all">THỬ LẠI NGAY</button>
+                </div>
+                <div className="bg-[#18181b]/60 backdrop-blur-xl p-6 sm:p-8 rounded-[2rem] border border-white/10 shadow-2xl">
+                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><List className="text-cyan-400" /> Chi Tiết Đáp Án</h3>
+                    <div className="space-y-4">
+                        {questions.map((q, idx) => {
+                            const uAns = userAnswers[q.id];
+                            if (q.type === 'single' || q.type === 'text') {
+                                let isCorrect = q.type === 'single' ? (q.options.find(o => o.isCorrect)?.key === uAns) : checkAnswerMatch(uAns, q.correctAnswer);
+                                let correctStr = q.type === 'single' ? (q.options.find(o => o.isCorrect)?.key) : q.correctAnswer;
+                                return <div key={q.id} className={`p-4 rounded-2xl border ${isCorrect ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'} flex flex-col sm:flex-row gap-4 justify-between sm:items-center`}><div className="font-bold text-gray-200 flex items-center gap-2">{isCorrect ? <CheckCircle2 className="text-emerald-400" size={20}/> : <XCircle className="text-red-400" size={20}/>}Câu {idx + 1}</div><div className="flex gap-2 text-sm w-full sm:w-auto"><div className="flex-1 sm:flex-none bg-black/40 px-4 py-2 rounded-xl text-center border border-white/5"><div className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Bạn chọn</div><div className={`font-black ${isCorrect ? 'text-emerald-400' : 'text-red-400'}`}>{uAns || "--"}</div></div><div className="flex-1 sm:flex-none bg-black/40 px-4 py-2 rounded-xl text-center border border-white/5"><div className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Đáp án</div><div className="font-black text-cyan-400">{correctStr}</div></div></div></div>
+                            }
+                            if (q.type === 'group') {
+                                return <div key={q.id} className="p-5 rounded-2xl border border-white/10 bg-white/5 flex flex-col gap-3"><div className="font-bold text-gray-200">Câu {idx + 1} (Đúng/Sai)</div><div className="grid grid-cols-1 gap-2">
+                                    {q.options.map(opt => {
+                                        const myChoice = uAns ? uAns[opt.key] : undefined, subCorrect = myChoice === opt.isCorrect;
+                                        return <div key={opt.key} className={`flex items-center justify-between p-3 rounded-xl bg-black/20 border ${subCorrect ? 'border-emerald-500/20' : 'border-red-500/20'}`}><span className="text-gray-300 text-sm pr-4"><span className="font-bold text-cyan-400">{opt.key}.</span> {opt.text}</span><div className="flex gap-2 text-xs shrink-0"><div className="bg-black/40 px-2 py-1 rounded text-center border border-white/5"><span className="text-gray-500 text-[9px] uppercase block">Bạn</span><span className={`font-bold ${subCorrect ? 'text-emerald-400' : 'text-red-400'}`}>{myChoice === true ? 'ĐÚNG' : myChoice === false ? 'SAI' : '--'}</span></div><div className="bg-black/40 px-2 py-1 rounded text-center border border-white/5"><span className="text-gray-500 text-[9px] uppercase block">Gốc</span><span className="font-bold text-cyan-400">{opt.isCorrect ? 'ĐÚNG' : 'SAI'}</span></div></div></div>
+                                    })}
+                                </div></div>
+                            }
+                            return null;
+                        })}
                     </div>
                 </div>
-                <button onClick={() => startExamFinal(questions, false)} className="w-full bg-white text-black py-4 rounded-2xl font-black hover:scale-105 hover:shadow-[0_0_30px_rgba(255,255,255,0.4)] transition-all">THỬ LẠI NGAY</button>
             </div>
         )}
       </main>
 
-      {/* --- FOOTER --- */}
       {screen === 'exam' && (
           <div className="fixed bottom-8 left-0 right-0 flex justify-center z-50 pointer-events-none">
               <div className="pointer-events-auto bg-[#18181b]/90 backdrop-blur-2xl border border-white/10 rounded-full p-2 flex items-center gap-4 shadow-[0_20px_50px_rgba(0,0,0,0.8)] ring-1 ring-white/5">
-                  <button onClick={handlePrevQuestion} disabled={currentQuestionIndex === 0} 
-                          className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${currentQuestionIndex === 0 ? 'text-gray-600' : 'bg-white/5 text-white hover:bg-white/10 hover:scale-110'}`}>
-                      <ChevronLeft size={24}/>
-                  </button>
-                  <button onClick={() => setShowQuestionGrid(true)} 
-                          className="h-12 px-6 rounded-full bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white flex items-center gap-3 font-bold shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all hover:scale-105 active:scale-95 group">
-                      <span className="text-lg tracking-widest">{currentQuestionIndex + 1}<span className="text-white/40 text-sm mx-1">/</span><span className="text-sm opacity-70">{questions.length}</span></span>
-                      <Grid size={18} className="opacity-70 group-hover:rotate-90 transition-transform"/>
-                  </button>
-                  {currentQuestionIndex < questions.length - 1 ? (
-                      <button onClick={handleNextQuestion} 
-                              className="w-12 h-12 rounded-full bg-white/5 text-white hover:bg-white/10 hover:scale-110 flex items-center justify-center transition-all duration-300">
-                          <ChevronRight size={24}/>
-                      </button>
-                  ) : (
-                      <button onClick={handleSubmit} className="h-12 px-6 rounded-full bg-white text-black font-black text-xs hover:scale-105 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] transition-all">
-                          NỘP
-                      </button>
-                  )}
+                  <button onClick={handlePrevQuestion} disabled={currentQuestionIndex === 0} className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${currentQuestionIndex === 0 ? 'text-gray-600' : 'bg-white/5 text-white hover:bg-white/10 hover:scale-110'}`}><ChevronLeft size={24}/></button>
+                  <button onClick={() => setShowQuestionGrid(true)} className="h-12 px-6 rounded-full bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white flex items-center gap-3 font-bold shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all hover:scale-105 active:scale-95 group"><span className="text-lg tracking-widest">{currentQuestionIndex + 1}<span className="text-white/40 text-sm mx-1">/</span><span className="text-sm opacity-70">{questions.length}</span></span><Grid size={18} className="opacity-70 group-hover:rotate-90 transition-transform"/></button>
+                  {currentQuestionIndex < questions.length - 1 ? (<button onClick={handleNextQuestion} className="w-12 h-12 rounded-full bg-white/5 text-white hover:bg-white/10 hover:scale-110 flex items-center justify-center transition-all"><ChevronRight size={24}/></button>) : (<button onClick={handleSubmit} className="h-12 px-6 rounded-full bg-white text-black font-black text-xs hover:scale-105 transition-all">NỘP</button>)}
                   <div className="w-[1px] h-6 bg-white/10"></div>
-                  <button onClick={() => handleCheckQuestion(currentQ.id)} 
-                          className={`w-12 h-12 rounded-full flex items-center justify-center text-white shadow-lg transition-all duration-300 active:scale-90 hover:scale-110 hover:shadow-[0_0_30px_currentColor] ${checkError === currentQ.id ? 'bg-orange-500 shadow-[0_0_15px_orange]' : 'bg-purple-600 shadow-[0_0_15px_purple]'}`}>
-                      {checkError === currentQ.id ? <RefreshCcw size={20}/> : <Eye size={20}/>}
-                  </button>
+                  <button onClick={() => handleCheckQuestion(currentQ.id)} className={`w-12 h-12 rounded-full flex items-center justify-center text-white shadow-lg transition-all duration-300 active:scale-90 hover:scale-110 ${checkError === currentQ.id ? 'bg-orange-500 shadow-[0_0_15px_orange]' : 'bg-purple-600 shadow-[0_0_15px_purple]'}`}>{checkError === currentQ.id ? <RefreshCcw size={20}/> : <Eye size={20}/>}</button>
               </div>
           </div>
       )}
