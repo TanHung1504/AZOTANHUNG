@@ -15,11 +15,12 @@ import {
 const FIREBASE_URL = "https://azotahung-default-rtdb.asia-southeast1.firebasedatabase.app/exams"; 
 
 // --- SOUND ASSETS ---
+// Đã thay thế bằng máy chủ âm thanh ổn định siêu mượt!
 const SOUNDS = {
-    click: "https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3",
-    success: "https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3",
-    error: "https://assets.mixkit.co/active_storage/sfx/2572/2572-preview.mp3",
-    finish: "https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3",
+    click: "https://cdn.pixabay.com/download/audio/2022/03/24/audio_c8c8a73467.mp3?filename=pop-39222.mp3",
+    success: "https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=success-1-6297.mp3",
+    error: "https://cdn.pixabay.com/download/audio/2022/03/15/audio_78bd1fbafb.mp3?filename=error-126627.mp3",
+    finish: "https://cdn.pixabay.com/download/audio/2021/08/09/audio_40dfdd1e06.mp3?filename=fanfare-triumphal-2-21147.mp3",
 };
 
 const formatTime = (seconds) => {
@@ -469,14 +470,14 @@ export default function App() {
         @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
         * { font-family: 'Nunito', sans-serif; }
         .btn-duo { transition: all 0.15s ease; }
-        .btn-duo:active { border-bottom-width: 2px !important; transform: translateY(2px); }
+        .btn-duo:active:not(:disabled) { border-bottom-width: 2px !important; transform: translateY(2px); }
         .custom-scroll::-webkit-scrollbar { width: 8px; }
         .custom-scroll::-webkit-scrollbar-track { background: transparent; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #e5e5e5; border-radius: 10px; }
         .custom-scroll::-webkit-scrollbar-thumb:hover { background: #cecece; }
       `}</style>
 
-      {/* HEADER ĐIỀU HƯỚNG MỚI */}
+      {/* HEADER ĐIỀU HƯỚNG */}
       <header className="h-20 border-b-2 border-[#e5e5e5] flex justify-between items-center px-4 sm:px-8 bg-white z-50 sticky top-0">
         <div className="flex items-center gap-4">
             {screen === 'exam' ? (
@@ -493,14 +494,16 @@ export default function App() {
 
         {/* Thanh Tiến Độ (Chỉ hiện khi đang thi) */}
         {screen === 'exam' ? (
-            <div className="flex-1 max-w-2xl mx-4 sm:mx-8 flex items-center gap-4">
+            <div className="flex-1 max-w-2xl mx-4 sm:mx-8 flex items-center gap-3 sm:gap-4">
                 <div className="font-bold text-[#afafaf] hidden sm:block whitespace-nowrap">Tiến độ</div>
                 <div className="flex-1 h-5 bg-[#e5e5e5] rounded-full overflow-hidden relative">
                     <div className="h-full bg-[#58cc02] rounded-full relative transition-all duration-500 ease-out" style={{width: `${progressPercent}%`}}>
                         <div className="absolute top-1.5 left-3 right-3 h-1.5 bg-white/30 rounded-full"></div>
                     </div>
                 </div>
-                <button onClick={() => setIsMuted(!isMuted)} className="text-[#afafaf] hover:text-[#4b4b4b] transition-colors">{isMuted ? <VolumeX size={24}/> : <Volume2 size={24}/>}</button>
+                {/* NÚT MỞ MENU MAP CÂU HỎI TRÊN ĐIỆN THOẠI (Dời lên đây) */}
+                <button onClick={() => setShowQuestionGrid(true)} className="lg:hidden btn-duo w-10 h-10 flex items-center justify-center text-[#1cb0f6] bg-[#ddf4ff] rounded-xl border-2 border-[#1cb0f6] border-b-[4px]"><Grid size={20} strokeWidth={3}/></button>
+                <button onClick={() => setIsMuted(!isMuted)} className="text-[#afafaf] hover:text-[#4b4b4b] transition-colors hidden sm:block">{isMuted ? <VolumeX size={24}/> : <Volume2 size={24}/>}</button>
             </div>
         ) : (
             <div className="flex items-center gap-3">
@@ -628,8 +631,8 @@ export default function App() {
                 
                 {/* Lưới câu hỏi thả xuống trên Mobile */}
                 {showQuestionGrid && (
-                    <div className="fixed inset-0 bg-white/90 backdrop-blur-sm z-[60] flex flex-col p-6 animate-fade-in lg:hidden">
-                        <div className="flex justify-between items-center mb-8">
+                    <div className="fixed inset-0 bg-white/95 backdrop-blur-md z-[60] flex flex-col p-6 animate-fade-in lg:hidden">
+                        <div className="flex justify-between items-center mb-8 pt-4">
                             <h3 className="font-black text-2xl text-[#3c3c3c]">Bản Đồ Câu Hỏi</h3>
                             <button onClick={() => setShowQuestionGrid(false)} className="btn-duo w-12 h-12 bg-white rounded-2xl border-2 border-[#e5e5e5] border-b-[4px] text-[#afafaf] flex items-center justify-center font-black"><X size={24}/></button>
                         </div>
@@ -728,14 +731,20 @@ export default function App() {
                     </div>
                 </div>
 
-                {/* Mobile Floating Navigation Footer */}
+                {/* Mobile Floating Navigation Footer (ĐÃ CẬP NHẬT TỐI ƯU CHO ĐIỆN THOẠI) */}
                 <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-white border-t-2 border-[#e5e5e5] z-50 flex gap-3 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
                     <button onClick={handlePrevQuestion} disabled={currentQuestionIndex === 0} className="btn-duo w-14 h-14 shrink-0 flex items-center justify-center rounded-2xl border-2 border-[#e5e5e5] border-b-[4px] bg-white text-[#afafaf] font-black disabled:opacity-50"><ChevronLeft size={28} strokeWidth={3}/></button>
+                    
+                    {/* Ở giữa: Nút KIỂM TRA (nếu Luyện tập) hoặc ĐỒNG HỒ ĐẾM NGƯỢC (nếu Thi Thử) */}
                     {isPracticeMode ? (
-                        <button onClick={() => handleCheckQuestion(currentQ.id)} className={`btn-duo flex-1 rounded-2xl border-2 border-b-[4px] text-white font-black text-lg uppercase tracking-wider ${checkError === currentQ.id ? 'bg-[#ffc800] border-[#e5b400]' : 'bg-[#58cc02] border-[#58a700]'}`}>{checkError === currentQ.id ? 'THỬ LẠI' : 'KIỂM TRA'}</button>
+                        <button onClick={() => handleCheckQuestion(currentQ.id)} className={`btn-duo flex-1 rounded-2xl border-2 border-b-[4px] text-white font-black text-[16px] uppercase tracking-wider ${checkError === currentQ.id ? 'bg-[#ffc800] border-[#e5b400]' : 'bg-[#58cc02] border-[#58a700]'}`}>{checkError === currentQ.id ? 'THỬ LẠI' : 'KIỂM TRA'}</button>
                     ) : (
-                        <button onClick={() => setShowQuestionGrid(true)} className="btn-duo flex-1 rounded-2xl border-2 border-[#1cb0f6] border-b-[4px] bg-[#1cb0f6] text-white font-black text-lg uppercase tracking-wider flex items-center justify-center gap-2"><Grid size={20}/> MENU</button>
+                        <div className="flex-1 rounded-2xl border-2 border-[#e5e5e5] border-b-[4px] bg-white flex flex-col items-center justify-center pt-1 shadow-inner">
+                            <span className="text-[9px] font-black text-[#afafaf] uppercase tracking-widest leading-none mb-1">Thời Gian</span>
+                            <span className="text-xl font-black text-[#ff4b4b] leading-none">{formatTime(timeLeft)}</span>
+                        </div>
                     )}
+
                     <button onClick={currentQuestionIndex < questions.length - 1 ? handleNextQuestion : handleSubmit} className={`btn-duo w-14 h-14 shrink-0 flex items-center justify-center rounded-2xl border-2 border-b-[4px] font-black text-white ${currentQuestionIndex < questions.length - 1 ? 'bg-[#1cb0f6] border-[#1899d6]' : 'bg-[#ff4b4b] border-[#ea2b2b]'}`}>{currentQuestionIndex < questions.length - 1 ? <ChevronRight size={28} strokeWidth={3}/> : <Check size={28} strokeWidth={3}/>}</button>
                 </div>
             </div>
