@@ -10,9 +10,9 @@ import {
   Maximize, Minimize, ZoomIn, ZoomOut, List, ChevronUp, ChevronDown, Grid, User, Terminal, Check, Volume2, VolumeX, Download
 } from 'lucide-react';
 
-// --- CẤU HÌNH GOOGLE FIREBASE (ĐÃ CHUYỂN ĐỔI) ---
-// Dán link Realtime Database của bạn vào đây (Nhớ thêm "/exams" ở cuối)
-const FIREBASE_URL = "https://azotahung-default-rtdb.asia-southeast1.firebasedatabase.app/exams"; 
+// --- CẤU HÌNH GOOGLE FIREBASE ---
+// Nhớ đổi chữ PROJECT_ID thành mã dự án của bạn nhé! (Tuyệt đối không xóa chữ /exams ở cuối)
+const FIREBASE_URL = "https://azotanhung.vercel.app/?id=-OqPODtUfDKtudZ2zZEB&mode=practice/exams"; 
 
 // --- SOUND ASSETS ---
 const SOUNDS = {
@@ -22,7 +22,6 @@ const SOUNDS = {
     finish: "https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3",
 };
 
-// --- UTILS ---
 const formatTime = (seconds) => {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
@@ -46,7 +45,6 @@ const DEMO_EXAM = [
 ];
 
 export default function App() {
-  // --- STATE ---
   const [screen, setScreen] = useState('upload'); 
   const [isPracticeMode, setIsPracticeMode] = useState(false);
   const [questions, setQuestions] = useState([]);
@@ -91,12 +89,8 @@ export default function App() {
       }, 250);
   };
 
-  // --- LOGIC PWA ---
   useEffect(() => {
-    const handler = (e) => {
-      e.preventDefault();
-      setInstallPrompt(e);
-    };
+    const handler = (e) => { e.preventDefault(); setInstallPrompt(e); };
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
@@ -108,7 +102,15 @@ export default function App() {
     if (outcome === 'accepted') setInstallPrompt(null);
   };
 
-  // --- LOGIC TẢI ĐỀ TỪ LINK FIREBASE ---
+  useEffect(() => {
+      if (scrollRef.current) {
+          const activeBtn = scrollRef.current.querySelector('.active-q-btn');
+          if (activeBtn) activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+  }, [currentQuestionIndex]);
+
+  useEffect(() => { if (window.innerWidth > 1024) setIsSidebarOpen(true); }, []);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const binId = params.get('id');
@@ -116,29 +118,27 @@ export default function App() {
     if (binId) {
         setIsLoading(true);
         setIsGuestMode(true); 
-        // Firebase sử dụng .json ở cuối URL
         fetch(`${FIREBASE_URL}/${binId}.json`)
         .then(res => res.json())
         .then(data => {
             if(data) {
-                setExamName(data.name);
+                setExamName(data.name || "Đề thi của bạn");
                 const isPractice = mode === 'practice';
                 setIsPracticeMode(isPractice);
-                setQuestions(data.qs);
+                setQuestions(data.qs || []);
                 setScreen('edit'); 
             } else {
-                alert("Không tìm thấy đề thi!");
+                alert("Không tìm thấy đề thi này!");
             }
         })
-        .catch(err => alert("Lỗi tải đề từ Firebase!"))
+        .catch(err => alert("Lỗi tải đề từ Firebase! Vui lòng kiểm tra lại mạng."))
         .finally(() => setIsLoading(false));
     }
   }, []);
 
-  // --- LOGIC TẠO LINK CHIA SẺ FIREBASE ---
   const handleCreateShareLink = async () => {
       if (!FIREBASE_URL || FIREBASE_URL.includes("PROJECT_ID")) {
-          return alert("Bạn chưa cấu hình FIREBASE_URL ở dòng 14!");
+          return alert("Bạn chưa cập nhật link FIREBASE_URL ở dòng 14!");
       }
       setIsLoading(true);
       const examData = { name: examName, qs: questions };
@@ -153,7 +153,6 @@ export default function App() {
           const data = await response.json();
           if (!response.ok) throw new Error("Lỗi máy chủ Firebase");
 
-          // Firebase trả về ID nằm trong trường "name"
           let url = `${window.location.origin}${window.location.pathname}?id=${data.name}`;
           if (shareAsPractice) url += "&mode=practice";
           setShareLink(url);
@@ -176,7 +175,7 @@ export default function App() {
         return newArr;
     };
 
-    let shuffledQs = JSON.parse(JSON.stringify(qsInput));
+    let shuffledQs = JSON.parse(JSON.stringify(qsInput || []));
     shuffledQs = shuffle(shuffledQs);
     shuffledQs = shuffledQs.map(q => {
         if (q.options && q.options.length > 0) {
@@ -239,10 +238,10 @@ export default function App() {
             if (q) {
                 if (q.type === 'single') {
                     const targetKey = keyString.charAt(0);
-                    q.options.forEach(opt => opt.isCorrect = (opt.key === targetKey));
+                    q.options?.forEach(opt => opt.isCorrect = (opt.key === targetKey));
                 } else if (q.type === 'group') {
                     const chars = keyString.split('');
-                    q.options.forEach((opt, idx) => {
+                    q.options?.forEach((opt, idx) => {
                         if (chars[idx]) {
                              const c = chars[idx];
                              if (c === 'D' || c === 'Đ') opt.isCorrect = true;
@@ -260,14 +259,15 @@ export default function App() {
 
   const handleCheckQuestion = (qId, overrideAns = undefined) => {
       const q = questions.find(item => item.id === qId);
+      if(!q) return;
       const uAns = overrideAns !== undefined ? overrideAns : userAnswers[qId];
       let isCorrect = false;
 
       if (q.type === 'single') {
-          const correctOpt = q.options.find(o => o.isCorrect);
+          const correctOpt = q.options?.find(o => o.isCorrect);
           if (correctOpt && uAns === correctOpt.key) isCorrect = true;
       } else if (q.type === 'group') {
-          const allCorrect = q.options.every(opt => {
+          const allCorrect = q.options?.every(opt => {
               const choice = uAns ? uAns[opt.key] : undefined;
               return choice === opt.isCorrect;
           });
@@ -334,7 +334,7 @@ export default function App() {
 
       if (isStrongStart && !text.match(singleOptionRegex) && !text.match(groupOptionRegex)) isNewQuestion = true; 
       else if (isWeakStart && !text.match(singleOptionRegex) && !text.match(groupOptionRegex)) {
-          if (currentQuestion && currentQuestion.options.length === 0) isNewQuestion = false; else isNewQuestion = true;
+          if (currentQuestion && (!currentQuestion.options || currentQuestion.options.length === 0)) isNewQuestion = false; else isNewQuestion = true;
       }
 
       if (isNewQuestion) {
@@ -350,7 +350,7 @@ export default function App() {
       if (currentQuestion.type === 'group' && (singleMatch || groupMatch)) { const match = singleMatch || groupMatch; currentQuestion.options.push({ key: match[1].toLowerCase(), text: match[2], isCorrect: isMarkedCorrect }); return; }
       if (groupMatch) { currentQuestion.type = 'group'; currentQuestion.options.push({ key: groupMatch[1].toLowerCase(), text: groupMatch[2], isCorrect: isMarkedCorrect }); return; }
       if (singleMatch) { currentQuestion.type = 'single'; currentQuestion.options.push({ key: singleMatch[1].toUpperCase(), text: singleMatch[2], isCorrect: isMarkedCorrect }); return; }
-      if (currentQuestion.options.length === 0) { currentQuestion.question += `<br/>${htmlContent}`; if (groupKeywords.test(text)) currentQuestion.type = 'group'; }
+      if (!currentQuestion.options || currentQuestion.options.length === 0) { currentQuestion.question += `<br/>${htmlContent}`; if (groupKeywords.test(text)) currentQuestion.type = 'group'; }
     });
     if (currentQuestion) parsedQuestions.push(currentQuestion);
     if (parsedQuestions.length > 0) { setQuestions(parsedQuestions); setScreen('edit'); } else { alert("Lỗi: Không tìm thấy câu hỏi nào!"); }
@@ -358,7 +358,7 @@ export default function App() {
 
   const handleCreateDemo = () => { setExamName("Đề Demo"); setQuestions(DEMO_EXAM); setScreen('edit'); };
   const handleTextAnswerEdit = (qIndex, newText) => { const newQuestions = [...questions]; newQuestions[qIndex].correctAnswer = newText; setQuestions(newQuestions); };
-  const toggleCorrectAnswer = (qIndex, optKey) => { const newQuestions = [...questions]; const q = newQuestions[qIndex]; if (q.type === 'single') q.options.forEach(opt => opt.isCorrect = (opt.key === optKey)); else if (q.type === 'group') { const opt = q.options.find(o => o.key === optKey); if (opt) opt.isCorrect = !opt.isCorrect; } setQuestions(newQuestions); };
+  const toggleCorrectAnswer = (qIndex, optKey) => { const newQuestions = [...questions]; const q = newQuestions[qIndex]; if (q.type === 'single') q.options?.forEach(opt => opt.isCorrect = (opt.key === optKey)); else if (q.type === 'group') { const opt = q.options?.find(o => o.key === optKey); if (opt) opt.isCorrect = !opt.isCorrect; } setQuestions(newQuestions); };
 
   useEffect(() => {
     if (screen === 'exam' && timeLeft > 0 && !isPracticeMode) { timerRef.current = setInterval(() => { setTimeLeft((prev) => { if (prev <= 1) { handleSubmit(); return 0; } return prev - 1; }); }, 1000); }
@@ -374,6 +374,7 @@ export default function App() {
           else { const currentGroup = prev[qId] || {}; return { ...prev, [qId]: { ...currentGroup, [subKey]: val } }; } 
       }); 
   };
+  
   const handleSubmit = () => { 
       playSound('finish');
       triggerConfetti();
@@ -386,8 +387,8 @@ export default function App() {
     let totalPoints = 0, maxPoints = questions.length, correctCount = 0;
     questions.forEach(q => {
       const uAns = userAnswers[q.id];
-      if (q.type === 'single') { const correctOpt = q.options.find(o => o.isCorrect); if (correctOpt && uAns === correctOpt.key) { totalPoints += 1; correctCount++; } } 
-      else if (q.type === 'group') { let subCorrect = 0; q.options.forEach(opt => { const userChoice = uAns ? uAns[opt.key] : undefined; if (userChoice !== undefined && userChoice === opt.isCorrect) subCorrect++; }); const point = subCorrect / 4; totalPoints += point; if (point === 1) correctCount++; } 
+      if (q.type === 'single') { const correctOpt = q.options?.find(o => o.isCorrect); if (correctOpt && uAns === correctOpt.key) { totalPoints += 1; correctCount++; } } 
+      else if (q.type === 'group') { let subCorrect = 0; q.options?.forEach(opt => { const userChoice = uAns ? uAns[opt.key] : undefined; if (userChoice !== undefined && userChoice === opt.isCorrect) subCorrect++; }); const point = subCorrect / 4; totalPoints += point; if (point === 1) correctCount++; } 
       else if (q.type === 'text') { if (checkAnswerMatch(uAns, q.correctAnswer)) { totalPoints += 1; correctCount++; } }
     });
     setScoreData({ score: ((totalPoints / maxPoints) * 10).toFixed(2), correctCount, total: questions.length });
@@ -396,8 +397,10 @@ export default function App() {
   useEffect(() => {
     const handleKeyDown = (e) => {
         if (screen !== 'exam') return;
-        const currentQ = questions[currentQuestionIndex]; if (!currentQ) return;
-        const isTyping = ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+        const currentQ = questions[currentQuestionIndex]; 
+        if (!currentQ) return;
+        
+        const isTyping = ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName);
         if (e.key === 'Enter') {
             e.preventDefault(); 
             if (isTyping && e.target) {
@@ -414,7 +417,7 @@ export default function App() {
         if (e.key === 'ArrowLeft') handlePrevQuestion();
         if (['1', '2', '3', '4'].includes(e.key) && currentQ.type === 'single') {
             const idx = parseInt(e.key) - 1;
-            if (currentQ.options[idx]) { handleAnswerChange(currentQ.id, currentQ.options[idx].key, 'single'); }
+            if (currentQ.options && currentQ.options[idx]) { handleAnswerChange(currentQ.id, currentQ.options[idx].key, 'single'); }
         }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -426,6 +429,9 @@ export default function App() {
   const isExamMode = screen === 'exam' || screen === 'result';
   const containerClass = isExamMode ? "min-h-screen font-sans text-gray-100 bg-[#09090b] selection:bg-cyan-500 selection:text-white" : "min-h-screen font-sans text-gray-800 bg-[#f3f4f6]";
   const headerClass = isExamMode ? "fixed top-0 left-0 right-0 z-50 h-16 px-4 flex justify-between items-center backdrop-blur-xl bg-black/40 border-b border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.5)]" : "fixed top-0 left-0 right-0 z-50 h-16 px-4 flex justify-between items-center bg-white border-b border-gray-200 shadow-sm";
+
+  // Biến bảo vệ cho giao diện làm bài
+  const currentQ = questions[currentQuestionIndex];
 
   return (
     <div className={containerClass}>
@@ -491,7 +497,7 @@ export default function App() {
                    <div key={q.id} className="border rounded-xl p-4 hover:border-indigo-300 transition-colors">
                       <div className="font-bold text-gray-800 mb-3 flex gap-2">
                          <span className="text-indigo-600">Câu {idx + 1}:</span>
-                         <span dangerouslySetInnerHTML={{ __html: q.question.replace(/^(Câu)?\s*\d+[\.:]\s*/i, '') }} />
+                         <span dangerouslySetInnerHTML={{ __html: q.question?.replace(/^(Câu)?\s*\d+[\.:]\s*/i, '') || '' }} />
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                         {q.options?.map(opt => (
@@ -576,14 +582,14 @@ export default function App() {
                             <div className="text-cyan-400 text-xs font-black uppercase tracking-[0.2em] bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/20 shadow-[0_0_10px_rgba(6,182,212,0.1)]">Câu {currentQuestionIndex + 1}</div>
                             {isPracticeMode && checkedQuestions[currentQ.id] && <div className="text-emerald-400 text-xs font-bold flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20"><CheckCircle2 size={12}/> Xong</div>}
                         </div>
-                        <div className="text-white text-lg sm:text-2xl font-medium leading-relaxed [&>img]:rounded-xl [&>img]:my-2 [&>img]:shadow-lg" dangerouslySetInnerHTML={{ __html: currentQ.question.replace(/^(Câu)?\s*\d+[\.:]\s*/i, '') }} />
+                        <div className="text-white text-lg sm:text-2xl font-medium leading-relaxed [&>img]:rounded-xl [&>img]:my-2 [&>img]:shadow-lg" dangerouslySetInnerHTML={{ __html: currentQ.question?.replace(/^(Câu)?\s*\d+[\.:]\s*/i, '') || '' }} />
                     </div>
                     <div className="flex items-center gap-4 px-8 py-4"><div className="h-px bg-white/5 flex-1"></div><span className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em]">Select Answer</span><div className="h-px bg-white/5 flex-1"></div></div>
                     <div className="px-6 sm:px-8 pb-24 flex-1">
                         {isPracticeMode && checkedQuestions[currentQ.id] && (<div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center gap-3 animate-bounce shadow-[0_0_20px_rgba(16,185,129,0.2)]"><div className="p-2 bg-emerald-500/20 rounded-full text-emerald-400"><Check size={20}/></div><div><h4 className="font-bold text-emerald-300">Chính xác! Xuất sắc.</h4><p className="text-xs text-emerald-400/70">Tiếp tục phát huy nhé!</p></div></div>)}
                         {checkError === currentQ.id && (<div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-2xl flex items-center gap-3 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.2)]"><div className="p-2 bg-red-500/20 rounded-full text-red-400"><AlertTriangle size={20}/></div><span className="font-bold text-sm text-red-300">Chưa đúng! Thử lại xem sao.</span></div>)}
                         <div className="flex flex-col gap-4">
-                            {currentQ.type === 'single' && currentQ.options.map((opt) => {
+                            {currentQ.type === 'single' && currentQ.options?.map((opt) => {
                                 const uAns = userAnswers[currentQ.id], isChecked = isPracticeMode && checkedQuestions[currentQ.id], isError = checkError === currentQ.id, isSelected = uAns === opt.key;
                                 let wrapperStyle = "border-white/5 bg-white/5 hover:bg-white/10 hover:border-white/10", keyStyle = "bg-black/30 text-gray-400 border border-white/5", textStyle = "text-gray-300";
                                 if (isChecked) { if (opt.isCorrect) { wrapperStyle = "border-emerald-500/50 bg-emerald-500/10 shadow-[0_0_25px_rgba(16,185,129,0.3)]"; keyStyle = "bg-emerald-500 text-black font-bold border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.5)]"; textStyle = "text-emerald-300 font-bold"; } else if (isSelected) { wrapperStyle = "border-transparent bg-white/5 opacity-30"; } else { wrapperStyle = "border-transparent bg-transparent opacity-20"; } } 
@@ -591,7 +597,7 @@ export default function App() {
                                 else if (isSelected) { wrapperStyle = "border-indigo-500/50 bg-indigo-500/20 shadow-[0_0_20px_rgba(99,102,241,0.2)] scale-[1.02]"; keyStyle = "bg-indigo-500 text-white font-bold border-indigo-400 shadow-[0_0_10px_rgba(99,102,241,0.5)]"; textStyle = "text-indigo-200 font-bold"; }
                                 return <div key={opt.key} onClick={() => handleAnswerChange(currentQ.id, opt.key, 'single')} className={`flex items-center p-4 rounded-2xl border transition-all cursor-pointer group active:scale-[0.97] duration-200 ${wrapperStyle}`}><div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm mr-4 transition-all shrink-0 ${keyStyle}`}>{opt.key}</div><div className={`flex-1 text-base transition-all ${textStyle}`}>{opt.text}</div></div>
                             })}
-                            {currentQ.type === 'group' && currentQ.options.map((opt) => (
+                            {currentQ.type === 'group' && currentQ.options?.map((opt) => (
                                 <div key={opt.key} className="p-4 border border-white/5 rounded-2xl bg-white/5 flex justify-between items-center hover:bg-white/10 transition-colors"><div className="font-medium text-gray-200"><span className="font-bold text-cyan-400 mr-2">{opt.key}.</span>{opt.text}</div><div className="flex gap-2">
                                     {['ĐÚNG', 'SAI'].map((label, i) => {
                                         const val = i === 0, myChoice = userAnswers[currentQ.id]?.[opt.key], isLocked = isPracticeMode && checkedQuestions[currentQ.id];
@@ -624,13 +630,13 @@ export default function App() {
                         {questions.map((q, idx) => {
                             const uAns = userAnswers[q.id];
                             if (q.type === 'single' || q.type === 'text') {
-                                let isCorrect = q.type === 'single' ? (q.options.find(o => o.isCorrect)?.key === uAns) : checkAnswerMatch(uAns, q.correctAnswer);
-                                let correctStr = q.type === 'single' ? (q.options.find(o => o.isCorrect)?.key) : q.correctAnswer;
+                                let isCorrect = q.type === 'single' ? (q.options?.find(o => o.isCorrect)?.key === uAns) : checkAnswerMatch(uAns, q.correctAnswer);
+                                let correctStr = q.type === 'single' ? (q.options?.find(o => o.isCorrect)?.key) : q.correctAnswer;
                                 return <div key={q.id} className={`p-4 rounded-2xl border ${isCorrect ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'} flex flex-col sm:flex-row gap-4 justify-between sm:items-center`}><div className="font-bold text-gray-200 flex items-center gap-2">{isCorrect ? <CheckCircle2 className="text-emerald-400" size={20}/> : <XCircle className="text-red-400" size={20}/>}Câu {idx + 1}</div><div className="flex gap-2 text-sm w-full sm:w-auto"><div className="flex-1 sm:flex-none bg-black/40 px-4 py-2 rounded-xl text-center border border-white/5"><div className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Bạn chọn</div><div className={`font-black ${isCorrect ? 'text-emerald-400' : 'text-red-400'}`}>{uAns || "--"}</div></div><div className="flex-1 sm:flex-none bg-black/40 px-4 py-2 rounded-xl text-center border border-white/5"><div className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Đáp án</div><div className="font-black text-cyan-400">{correctStr}</div></div></div></div>
                             }
                             if (q.type === 'group') {
                                 return <div key={q.id} className="p-5 rounded-2xl border border-white/10 bg-white/5 flex flex-col gap-3"><div className="font-bold text-gray-200">Câu {idx + 1} (Đúng/Sai)</div><div className="grid grid-cols-1 gap-2">
-                                    {q.options.map(opt => {
+                                    {q.options?.map(opt => {
                                         const myChoice = uAns ? uAns[opt.key] : undefined, subCorrect = myChoice === opt.isCorrect;
                                         return <div key={opt.key} className={`flex items-center justify-between p-3 rounded-xl bg-black/20 border ${subCorrect ? 'border-emerald-500/20' : 'border-red-500/20'}`}><span className="text-gray-300 text-sm pr-4"><span className="font-bold text-cyan-400">{opt.key}.</span> {opt.text}</span><div className="flex gap-2 text-xs shrink-0"><div className="bg-black/40 px-2 py-1 rounded text-center border border-white/5"><span className="text-gray-500 text-[9px] uppercase block">Bạn</span><span className={`font-bold ${subCorrect ? 'text-emerald-400' : 'text-red-400'}`}>{myChoice === true ? 'ĐÚNG' : myChoice === false ? 'SAI' : '--'}</span></div><div className="bg-black/40 px-2 py-1 rounded text-center border border-white/5"><span className="text-gray-500 text-[9px] uppercase block">Gốc</span><span className="font-bold text-cyan-400">{opt.isCorrect ? 'ĐÚNG' : 'SAI'}</span></div></div></div>
                                     })}
@@ -644,7 +650,7 @@ export default function App() {
         )}
       </main>
 
-      {screen === 'exam' && (
+      {screen === 'exam' && currentQ && (
           <div className="fixed bottom-8 left-0 right-0 flex justify-center z-50 pointer-events-none">
               <div className="pointer-events-auto bg-[#18181b]/90 backdrop-blur-2xl border border-white/10 rounded-full p-2 flex items-center gap-4 shadow-[0_20px_50px_rgba(0,0,0,0.8)] ring-1 ring-white/5">
                   <button onClick={handlePrevQuestion} disabled={currentQuestionIndex === 0} className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${currentQuestionIndex === 0 ? 'text-gray-600' : 'bg-white/5 text-white hover:bg-white/10 hover:scale-110'}`}><ChevronLeft size={24}/></button>
