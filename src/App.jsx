@@ -12,7 +12,7 @@ import {
 
 // --- CẤU HÌNH GOOGLE FIREBASE (ĐÃ CHUYỂN ĐỔI) ---
 // Dán link Realtime Database của bạn vào đây (Nhớ thêm "/exams" ở cuối)
-const FIREBASE_URL = "https://azotahung-default-rtdb.asia-southeast1.firebasedatabase.app/"; 
+const FIREBASE_URL = "https://azotahung-default-rtdb.asia-southeast1.firebasedatabase.app/exams"; 
 
 // --- SOUND ASSETS ---
 const SOUNDS = {
