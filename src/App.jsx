@@ -14,13 +14,12 @@ import {
 // DÁN LINK FIREBASE CỦA BẠN VÀO DÒNG DƯỚI ĐÂY (Nhớ có chữ /exams ở cuối)
 const FIREBASE_URL = "https://azotahung-default-rtdb.asia-southeast1.firebasedatabase.app/exams"; 
 
-// --- SOUND ASSETS ---
-// Đã thay thế bằng máy chủ âm thanh ổn định siêu mượt!
+// --- SOUND ASSETS CHUẨN MỚI ---
 const SOUNDS = {
-    click: "https://cdn.pixabay.com/download/audio/2022/03/24/audio_c8c8a73467.mp3?filename=pop-39222.mp3",
+    click: "https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3",
     success: "https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=success-1-6297.mp3",
     error: "https://cdn.pixabay.com/download/audio/2022/03/15/audio_78bd1fbafb.mp3?filename=error-126627.mp3",
-    finish: "https://cdn.pixabay.com/download/audio/2021/08/09/audio_40dfdd1e06.mp3?filename=fanfare-triumphal-2-21147.mp3",
+    finish: "https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3",
 };
 
 const formatTime = (seconds) => {
@@ -64,6 +63,7 @@ export default function App() {
   const [showQuestionGrid, setShowQuestionGrid] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [installPrompt, setInstallPrompt] = useState(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // State để Ẩn/Hiện Map trên PC
 
   const timerRef = useRef(null);
   const scrollRef = useRef(null);
@@ -94,13 +94,6 @@ export default function App() {
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
-
-  const handleInstallApp = async () => {
-    if (!installPrompt) return;
-    installPrompt.prompt();
-    const { outcome } = await installPrompt.userChoice;
-    if (outcome === 'accepted') setInstallPrompt(null);
-  };
 
   useEffect(() => {
       if (scrollRef.current) {
@@ -199,6 +192,7 @@ export default function App() {
     setIsPracticeMode(forcePractice);
     setScreen('exam');
     setShowQuestionGrid(false); 
+    if(window.innerWidth <= 1024) setIsSidebarOpen(false); // Ẩn sidebar trên đt
   };
 
   useEffect(() => {
@@ -287,8 +281,8 @@ export default function App() {
       }
   };
 
-  const handleNextQuestion = () => { if (currentQuestionIndex < questions.length - 1) { setCurrentQuestionIndex(prev => prev + 1); window.scrollTo(0, 0); } };
-  const handlePrevQuestion = () => { if (currentQuestionIndex > 0) { setCurrentQuestionIndex(prev => prev - 1); window.scrollTo(0, 0); } };
+  const handleNextQuestion = () => { if (currentQuestionIndex < questions.length - 1) { setCurrentQuestionIndex(prev => prev + 1); } };
+  const handlePrevQuestion = () => { if (currentQuestionIndex > 0) { setCurrentQuestionIndex(prev => prev - 1); } };
   
   const handleFileUpload = async (e) => {
     const file = e.target.files[0]; if (!file) return;
@@ -411,7 +405,6 @@ export default function App() {
       triggerConfetti();
       clearInterval(timerRef.current); 
       calculateScore(); 
-      window.scrollTo(0, 0); 
       setScreen('result'); 
   };
   
@@ -456,16 +449,15 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [screen, currentQuestionIndex, questions, isPracticeMode, checkedQuestions, checkError, userAnswers]);
 
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-white"><div className="animate-spin rounded-full h-12 w-12 border-b-4 border-[#1cb0f6]"></div></div>;
+  if (isLoading) return <div className="h-[100dvh] flex items-center justify-center bg-white"><div className="animate-spin rounded-full h-12 w-12 border-b-4 border-[#1cb0f6]"></div></div>;
 
   const currentQ = questions[currentQuestionIndex];
-  
-  // Tính toán phần trăm thanh tiến độ
   const progressPercent = questions.length > 0 ? ((currentQuestionIndex + 1) / questions.length) * 100 : 0;
 
   return (
-    <div className="min-h-screen bg-white text-[#4b4b4b] flex flex-col font-sans overflow-x-hidden selection:bg-[#ddf4ff] selection:text-[#1cb0f6]">
-      {/* NHÚNG CSS NỘI BỘ CHO GIAO DIỆN HYBRID */}
+    // THAY ĐỔI LỚN 1: Sử dụng h-[100dvh] và overflow-hidden để khóa toàn bộ trang web
+    <div className="h-[100dvh] w-full bg-white text-[#4b4b4b] flex flex-col font-sans overflow-hidden selection:bg-[#ddf4ff] selection:text-[#1cb0f6]">
+      {/* CSS NỘI BỘ KHÔNG THAY ĐỔI */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
         * { font-family: 'Nunito', sans-serif; }
@@ -477,11 +469,11 @@ export default function App() {
         .custom-scroll::-webkit-scrollbar-thumb:hover { background: #cecece; }
       `}</style>
 
-      {/* HEADER ĐIỀU HƯỚNG */}
-      <header className="h-20 border-b-2 border-[#e5e5e5] flex justify-between items-center px-4 sm:px-8 bg-white z-50 sticky top-0">
-        <div className="flex items-center gap-4">
+      {/* HEADER CỐ ĐỊNH */}
+      <header className="h-[70px] sm:h-20 shrink-0 border-b-2 border-[#e5e5e5] flex justify-between items-center px-4 sm:px-8 bg-white z-50">
+        <div className="flex items-center gap-3 sm:gap-4">
             {screen === 'exam' ? (
-                <button onClick={() => { if(confirm("Thoát bài thi?")) setScreen('upload'); }} className="btn-duo w-12 h-12 rounded-2xl border-2 border-[#e5e5e5] border-b-[4px] text-[#afafaf] hover:bg-[#f7f7f7] flex items-center justify-center font-black text-xl">
+                <button onClick={() => { if(confirm("Thoát bài thi?")) setScreen('upload'); }} className="btn-duo w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl border-2 border-[#e5e5e5] border-b-[4px] text-[#afafaf] hover:bg-[#f7f7f7] flex items-center justify-center font-black">
                     <X size={24} strokeWidth={3}/>
                 </button>
             ) : (
@@ -492,17 +484,19 @@ export default function App() {
             )}
         </div>
 
-        {/* Thanh Tiến Độ (Chỉ hiện khi đang thi) */}
         {screen === 'exam' ? (
-            <div className="flex-1 max-w-2xl mx-4 sm:mx-8 flex items-center gap-3 sm:gap-4">
+            <div className="flex-1 max-w-2xl mx-4 sm:mx-8 flex items-center justify-end sm:justify-center gap-3 sm:gap-4">
                 <div className="font-bold text-[#afafaf] hidden sm:block whitespace-nowrap">Tiến độ</div>
-                <div className="flex-1 h-5 bg-[#e5e5e5] rounded-full overflow-hidden relative">
+                <div className="flex-1 max-w-xs h-4 sm:h-5 bg-[#e5e5e5] rounded-full overflow-hidden relative">
                     <div className="h-full bg-[#58cc02] rounded-full relative transition-all duration-500 ease-out" style={{width: `${progressPercent}%`}}>
-                        <div className="absolute top-1.5 left-3 right-3 h-1.5 bg-white/30 rounded-full"></div>
+                        <div className="absolute top-1 left-2 right-2 h-1.5 bg-white/30 rounded-full"></div>
                     </div>
                 </div>
-                {/* NÚT MỞ MENU MAP CÂU HỎI TRÊN ĐIỆN THOẠI (Dời lên đây) */}
-                <button onClick={() => setShowQuestionGrid(true)} className="lg:hidden btn-duo w-10 h-10 flex items-center justify-center text-[#1cb0f6] bg-[#ddf4ff] rounded-xl border-2 border-[#1cb0f6] border-b-[4px]"><Grid size={20} strokeWidth={3}/></button>
+                
+                {/* NÚT TẮT MỞ MAP DÀNH CHO CẢ PC VÀ MOBILE */}
+                <button onClick={() => window.innerWidth > 1024 ? setIsSidebarOpen(!isSidebarOpen) : setShowQuestionGrid(true)} className="btn-duo h-10 px-3 sm:px-4 flex items-center justify-center text-[#1cb0f6] bg-[#ddf4ff] rounded-xl border-2 border-[#1cb0f6] border-b-[4px] font-black text-[13px] uppercase tracking-wider gap-2">
+                    <Grid size={18} strokeWidth={3}/> <span className="hidden sm:block">{isSidebarOpen ? 'Ẩn Map' : 'Hiện Map'}</span>
+                </button>
                 <button onClick={() => setIsMuted(!isMuted)} className="text-[#afafaf] hover:text-[#4b4b4b] transition-colors hidden sm:block">{isMuted ? <VolumeX size={24}/> : <Volume2 size={24}/>}</button>
             </div>
         ) : (
@@ -515,11 +509,12 @@ export default function App() {
         )}
       </header>
 
-      <main className="flex-1 overflow-y-auto custom-scroll flex flex-col items-center">
+      {/* THAY ĐỔI LỚN 2: Thẻ Main linh hoạt. Nếu đang thi thì đóng cứng không cho cuộn, ngoài ra thì cuộn bình thường */}
+      <main className={`flex-1 w-full flex flex-col items-center min-h-0 ${screen === 'exam' ? 'overflow-hidden bg-[#f7f7f7] sm:bg-white' : 'overflow-y-auto custom-scroll p-4 sm:p-6'}`}>
         
-        {/* --- MÀN HÌNH TẢI ĐỀ --- */}
+        {/* --- CÁC MÀN HÌNH CHỜ THI (UPLOAD, EDIT, GUEST) CỨ ĐỂ BÌNH THƯỜNG --- */}
         {screen === 'upload' && !isGuestMode && (
-          <div className="flex flex-col items-center justify-center w-full max-w-xl p-6 py-12 animate-fade-in-up">
+          <div className="flex flex-col items-center justify-center w-full max-w-xl py-12 animate-fade-in-up">
              <div className="w-24 h-24 bg-[#ddf4ff] rounded-full flex items-center justify-center mx-auto mb-6 text-[#1cb0f6]"><Upload size={48} strokeWidth={2.5}/></div>
              <h2 className="text-3xl font-black text-[#3c3c3c] mb-3 text-center">Tạo & Chia Sẻ Đề</h2>
              <p className="text-[#afafaf] mb-10 text-center font-bold">Upload file Word để trải nghiệm giao diện siêu việt.</p>
@@ -537,9 +532,8 @@ export default function App() {
           </div>
         )}
 
-        {/* --- MÀN HÌNH SỬA ĐỀ --- */}
         {screen === 'edit' && !isGuestMode && (
-          <div className="flex flex-col lg:flex-row gap-8 w-full max-w-6xl p-6">
+          <div className="flex flex-col lg:flex-row gap-8 w-full max-w-6xl">
              <div className="flex-1 bg-white rounded-3xl border-2 border-[#e5e5e5] p-6 sm:p-8">
                <div className="flex justify-between items-center mb-6 pb-6 border-b-2 border-[#e5e5e5]">
                  <h2 className="text-2xl font-black text-[#3c3c3c] flex items-center gap-3"><Edit3 size={28} className="text-[#1cb0f6]"/> Duyệt Đề</h2>
@@ -573,7 +567,7 @@ export default function App() {
                </div>
              </div>
 
-             <div className="w-full lg:w-80 flex flex-col gap-6">
+             <div className="w-full lg:w-80 flex flex-col gap-6 shrink-0">
                 <div className="bg-white rounded-3xl border-2 border-[#e5e5e5] p-6 text-center">
                     <h3 className="font-black text-xl mb-6 text-[#3c3c3c]">Chia Sẻ & Thi</h3>
                     <div className="flex items-center justify-center gap-3 mb-6 bg-[#f7f7f7] p-3 rounded-xl cursor-pointer" onClick={() => setShareAsPractice(!shareAsPractice)}>
@@ -606,9 +600,8 @@ export default function App() {
           </div>
         )}
 
-        {/* --- MÀN HÌNH CHỜ THI (GUEST) --- */}
         {screen === 'edit' && isGuestMode && (
-            <div className="flex flex-col items-center justify-center min-h-[70vh] p-4 w-full">
+            <div className="flex flex-col items-center justify-center min-h-[70vh] w-full">
                 <div className="bg-white p-8 sm:p-10 rounded-3xl border-2 border-[#e5e5e5] text-center max-w-lg w-full shadow-lg">
                     <div className="w-24 h-24 mx-auto bg-[#ddf4ff] rounded-full flex items-center justify-center mb-6">
                         <BookOpen size={48} className="text-[#1cb0f6]"/>
@@ -625,18 +618,19 @@ export default function App() {
             </div>
         )}
 
-        {/* --- MÀN HÌNH LÀM BÀI (PRO x DUOLINGO) --- */}
+        {/* THAY ĐỔI LỚN 3: Cấu trúc Layout Màn hình Thi chống tràn */}
         {screen === 'exam' && currentQ && (
-            <div className="flex-1 flex max-w-6xl w-full mx-auto p-4 sm:p-6 gap-8 relative pb-24 lg:pb-6">
+            <div className="flex-1 flex flex-col lg:flex-row max-w-6xl w-full mx-auto p-0 sm:p-5 gap-0 sm:gap-6 min-h-0 overflow-hidden relative">
                 
-                {/* Lưới câu hỏi thả xuống trên Mobile */}
+                {/* OVERLAY MAP TRÊN MOBILE (Cuộn được độc lập) */}
                 {showQuestionGrid && (
-                    <div className="fixed inset-0 bg-white/95 backdrop-blur-md z-[60] flex flex-col p-6 animate-fade-in lg:hidden">
-                        <div className="flex justify-between items-center mb-8 pt-4">
+                    <div className="fixed inset-0 bg-white/95 backdrop-blur-md z-[100] flex flex-col p-5 animate-fade-in lg:hidden">
+                        <div className="flex justify-between items-center mb-6 pt-2 shrink-0">
                             <h3 className="font-black text-2xl text-[#3c3c3c]">Bản Đồ Câu Hỏi</h3>
                             <button onClick={() => setShowQuestionGrid(false)} className="btn-duo w-12 h-12 bg-white rounded-2xl border-2 border-[#e5e5e5] border-b-[4px] text-[#afafaf] flex items-center justify-center font-black"><X size={24}/></button>
                         </div>
-                        <div className="flex flex-wrap gap-3 content-start flex-1 overflow-y-auto custom-scroll pb-20">
+                        {/* Khu vực chứa lưới câu hỏi cuộn được */}
+                        <div className="flex-1 overflow-y-auto custom-scroll flex flex-wrap gap-3 content-start pb-6 min-h-0">
                             {questions.map((q, idx) => {
                                 const isDone = checkedQuestions[q.id] || userAnswers[q.id] !== undefined, isError = checkError === q.id, isCurrent = idx === currentQuestionIndex;
                                 let style = "bg-white border-[#e5e5e5] text-[#afafaf] border-b-[4px]";
@@ -645,112 +639,116 @@ export default function App() {
                                 return <button key={q.id} onClick={() => { setCurrentQuestionIndex(idx); setShowQuestionGrid(false); }} className={`btn-duo w-14 h-14 rounded-2xl border-2 font-black text-lg flex items-center justify-center ${style}`}>{idx + 1}</button>
                             })}
                         </div>
-                        <button onClick={() => {setShowQuestionGrid(false); handleSubmit();}} className="btn-duo w-full mt-auto bg-[#ff4b4b] border-[#ea2b2b] border-b-[4px] text-white py-5 rounded-2xl font-black text-xl uppercase tracking-wider">NỘP BÀI NGAY</button>
+                        <button onClick={() => {setShowQuestionGrid(false); handleSubmit();}} className="btn-duo w-full shrink-0 mt-4 bg-[#ff4b4b] border-[#ea2b2b] border-b-[4px] text-white py-5 rounded-2xl font-black text-xl uppercase tracking-wider">NỘP BÀI NGAY</button>
                     </div>
                 )}
 
-                {/* Cột Trái: Đọc Câu Hỏi & Trả Lời */}
-                <div className="flex-1 flex flex-col min-h-[500px]">
-                    <div className="flex items-center gap-3 mb-6">
+                {/* CỘT TRÁI: Khu vực Câu Hỏi (Cuộn độc lập) */}
+                <div className="flex-1 flex flex-col min-h-0 bg-white sm:rounded-3xl sm:border-2 sm:border-[#e5e5e5] p-4 sm:p-6 pb-20 sm:pb-6">
+                    {/* Header câu hỏi */}
+                    <div className="flex items-center gap-3 mb-4 sm:mb-6 shrink-0">
                         <div className="px-4 py-2 bg-[#ffc800] text-white rounded-xl font-black text-sm uppercase tracking-wider shadow-[0_3px_0_#e5b400]">Câu {currentQuestionIndex + 1}</div>
                         <span className="font-bold text-[#afafaf] text-sm uppercase hidden sm:block">| {currentQ.type === 'single' ? 'Trắc nghiệm một lựa chọn' : currentQ.type === 'group' ? 'Trắc nghiệm đúng/sai' : 'Trả lời ngắn'}</span>
                     </div>
 
-                    <div className="text-[#3c3c3c] text-xl sm:text-2xl font-black leading-relaxed mb-8 [&>img]:rounded-2xl [&>img]:my-4 [&>img]:shadow-md [&>img]:border-2 [&>img]:border-[#e5e5e5]" dangerouslySetInnerHTML={{ __html: currentQ.question?.replace(/^(Câu)?\s*\d+[\.:]\s*/i, '') || '' }} />
-                    
-                    {/* Banner Thông báo Luyện Tập (Đúng/Sai) */}
-                    {isPracticeMode && checkedQuestions[currentQ.id] && (<div className="mb-6 p-4 bg-[#d7ffb8] border-2 border-[#58a700] rounded-2xl flex items-center gap-4 animate-bounce"><div className="w-12 h-12 bg-[#58cc02] rounded-full flex items-center justify-center text-white shrink-0"><Check size={28} strokeWidth={3}/></div><h4 className="font-black text-[#58a700] text-xl">Tuyệt vời! Chính xác.</h4></div>)}
-                    {checkError === currentQ.id && (<div className="mb-6 p-4 bg-[#ffdfe0] border-2 border-[#ea2b2b] rounded-2xl flex items-center gap-4 animate-pulse"><div className="w-12 h-12 bg-[#ff4b4b] rounded-full flex items-center justify-center text-white shrink-0"><X size={28} strokeWidth={3}/></div><h4 className="font-black text-[#ea2b2b] text-xl">Chưa đúng! Thử lại nào.</h4></div>)}
+                    {/* VÙNG CUỘN ĐƯỢC CHỨA CÂU HỎI VÀ ĐÁP ÁN */}
+                    <div className="flex-1 overflow-y-auto custom-scroll pr-1 sm:pr-3 pb-4 min-h-0">
+                        <div className="text-[#3c3c3c] text-xl sm:text-[22px] font-black leading-relaxed mb-6 [&>img]:rounded-2xl [&>img]:my-4 [&>img]:shadow-md [&>img]:border-2 [&>img]:border-[#e5e5e5]" dangerouslySetInnerHTML={{ __html: currentQ.question?.replace(/^(Câu)?\s*\d+[\.:]\s*/i, '') || '' }} />
+                        
+                        {/* Banner Luyện Tập */}
+                        {isPracticeMode && checkedQuestions[currentQ.id] && (<div className="mb-6 p-4 bg-[#d7ffb8] border-2 border-[#58a700] rounded-2xl flex items-center gap-4 animate-bounce"><div className="w-12 h-12 bg-[#58cc02] rounded-full flex items-center justify-center text-white shrink-0"><Check size={28} strokeWidth={3}/></div><h4 className="font-black text-[#58a700] text-xl">Tuyệt vời! Chính xác.</h4></div>)}
+                        {checkError === currentQ.id && (<div className="mb-6 p-4 bg-[#ffdfe0] border-2 border-[#ea2b2b] rounded-2xl flex items-center gap-4 animate-pulse"><div className="w-12 h-12 bg-[#ff4b4b] rounded-full flex items-center justify-center text-white shrink-0"><X size={28} strokeWidth={3}/></div><h4 className="font-black text-[#ea2b2b] text-xl">Chưa đúng! Thử lại nào.</h4></div>)}
 
-                    {/* Vùng chọn đáp án */}
-                    <div className="flex flex-col gap-4 flex-1">
-                        {currentQ.type === 'single' && currentQ.options?.map((opt) => {
-                            const uAns = userAnswers[currentQ.id], isChecked = isPracticeMode && checkedQuestions[currentQ.id], isError = checkError === currentQ.id, isSelected = uAns === opt.key;
-                            
-                            let wrapperStyle = "bg-white border-[#e5e5e5] text-[#4b4b4b] border-b-[4px] hover:bg-[#f7f7f7]";
-                            let boxStyle = "border-[#e5e5e5] text-[#afafaf] bg-white";
-                            
-                            if (isChecked) { 
-                                if (opt.isCorrect) { wrapperStyle = "bg-[#d7ffb8] border-[#58a700] border-b-[4px] text-[#58a700]"; boxStyle = "bg-white border-[#58a700] text-[#58a700]"; } 
-                                else if (isSelected) { wrapperStyle = "bg-gray-100 border-[#e5e5e5] opacity-50"; boxStyle = "bg-white border-[#e5e5e5]"; } 
-                                else { wrapperStyle = "bg-white border-[#e5e5e5] opacity-30"; boxStyle = "bg-white border-[#e5e5e5]"; } 
-                            } 
-                            else if (isError && isSelected) { wrapperStyle = "bg-[#ffdfe0] border-[#ea2b2b] border-b-[4px] text-[#ea2b2b]"; boxStyle = "bg-white border-[#ea2b2b] text-[#ea2b2b]"; } 
-                            else if (isSelected) { wrapperStyle = "bg-[#ddf4ff] border-[#1cb0f6] border-b-[4px] text-[#1cb0f6]"; boxStyle = "bg-white border-[#1cb0f6] text-[#1cb0f6]"; }
-                            
-                            return <div key={opt.key} onClick={() => handleAnswerChange(currentQ.id, opt.key, 'single')} className={`btn-duo w-full p-4 sm:p-5 rounded-2xl border-2 font-bold text-lg cursor-pointer flex items-center gap-4 ${wrapperStyle}`}><div className={`w-10 h-10 rounded-xl flex items-center justify-center border-2 font-black text-lg shrink-0 ${boxStyle}`}>{opt.key}</div><div className="flex-1" dangerouslySetInnerHTML={{ __html: opt.text }}></div></div>
-                        })}
-                        {currentQ.type === 'group' && currentQ.options?.map((opt) => (
-                            <div key={opt.key} className="p-4 sm:p-5 border-2 border-[#e5e5e5] border-b-[4px] rounded-2xl bg-white flex flex-col sm:flex-row justify-between sm:items-center gap-4 hover:bg-[#f7f7f7] transition-colors"><div className="font-bold text-[#4b4b4b] text-lg flex-1"><span className="font-black text-[#1cb0f6] mr-2">{opt.key}.</span><span dangerouslySetInnerHTML={{ __html: opt.text }}></span></div><div className="flex gap-3 shrink-0">
-                                {['ĐÚNG', 'SAI'].map((label, i) => {
-                                    const val = i === 0, myChoice = userAnswers[currentQ.id]?.[opt.key], isLocked = isPracticeMode && checkedQuestions[currentQ.id];
-                                    const isActive = myChoice === val;
-                                    const btnStyle = isActive ? (val ? 'bg-[#1cb0f6] border-[#1899d6] border-b-[4px] text-white' : 'bg-[#ff4b4b] border-[#ea2b2b] border-b-[4px] text-white') : 'bg-white border-[#e5e5e5] border-b-[4px] text-[#afafaf] hover:bg-[#f7f7f7]';
-                                    return <button key={label} onClick={() => !isLocked && handleAnswerChange(currentQ.id, val, 'group', opt.key)} className={`btn-duo px-6 py-3 rounded-xl border-2 font-black text-sm uppercase tracking-wider ${btnStyle}`}>{label}</button>
-                                })}
-                            </div></div>
-                        ))}
-                        {currentQ.type === 'text' && <input type="text" placeholder="Nhập đáp án..." className="w-full p-5 text-xl bg-white border-2 border-[#e5e5e5] border-b-[4px] rounded-2xl text-[#3c3c3c] font-black outline-none focus:border-[#1cb0f6] transition-all" value={userAnswers[currentQ.id] || ''} onChange={(e) => handleAnswerChange(currentQ.id, e.target.value, 'text')} />}
+                        {/* Đáp án */}
+                        <div className="flex flex-col gap-4 pb-2">
+                            {currentQ.type === 'single' && currentQ.options?.map((opt) => {
+                                const uAns = userAnswers[currentQ.id], isChecked = isPracticeMode && checkedQuestions[currentQ.id], isError = checkError === currentQ.id, isSelected = uAns === opt.key;
+                                let wrapperStyle = "bg-white border-[#e5e5e5] text-[#4b4b4b] border-b-[4px] hover:bg-[#f7f7f7]";
+                                let boxStyle = "border-[#e5e5e5] text-[#afafaf] bg-white";
+                                if (isChecked) { if (opt.isCorrect) { wrapperStyle = "bg-[#d7ffb8] border-[#58a700] border-b-[4px] text-[#58a700]"; boxStyle = "bg-white border-[#58a700] text-[#58a700]"; } else if (isSelected) { wrapperStyle = "bg-gray-100 border-[#e5e5e5] opacity-50"; boxStyle = "bg-white border-[#e5e5e5]"; } else { wrapperStyle = "bg-white border-[#e5e5e5] opacity-30"; boxStyle = "bg-white border-[#e5e5e5]"; } } 
+                                else if (isError && isSelected) { wrapperStyle = "bg-[#ffdfe0] border-[#ea2b2b] border-b-[4px] text-[#ea2b2b]"; boxStyle = "bg-white border-[#ea2b2b] text-[#ea2b2b]"; } 
+                                else if (isSelected) { wrapperStyle = "bg-[#ddf4ff] border-[#1cb0f6] border-b-[4px] text-[#1cb0f6]"; boxStyle = "bg-white border-[#1cb0f6] text-[#1cb0f6]"; }
+                                return <div key={opt.key} onClick={() => handleAnswerChange(currentQ.id, opt.key, 'single')} className={`btn-duo w-full p-4 rounded-2xl border-2 font-bold text-lg cursor-pointer flex items-center gap-4 ${wrapperStyle}`}><div className={`w-10 h-10 rounded-xl flex items-center justify-center border-2 font-black text-lg shrink-0 ${boxStyle}`}>{opt.key}</div><div className="flex-1" dangerouslySetInnerHTML={{ __html: opt.text }}></div></div>
+                            })}
+                            {currentQ.type === 'group' && currentQ.options?.map((opt) => (
+                                <div key={opt.key} className="p-4 sm:p-5 border-2 border-[#e5e5e5] border-b-[4px] rounded-2xl bg-white flex flex-col sm:flex-row justify-between sm:items-center gap-4 hover:bg-[#f7f7f7] transition-colors"><div className="font-bold text-[#4b4b4b] text-lg flex-1"><span className="font-black text-[#1cb0f6] mr-2">{opt.key}.</span><span dangerouslySetInnerHTML={{ __html: opt.text }}></span></div><div className="flex gap-3 shrink-0">
+                                    {['ĐÚNG', 'SAI'].map((label, i) => {
+                                        const val = i === 0, myChoice = userAnswers[currentQ.id]?.[opt.key], isLocked = isPracticeMode && checkedQuestions[currentQ.id];
+                                        const isActive = myChoice === val;
+                                        const btnStyle = isActive ? (val ? 'bg-[#1cb0f6] border-[#1899d6] border-b-[4px] text-white' : 'bg-[#ff4b4b] border-[#ea2b2b] border-b-[4px] text-white') : 'bg-white border-[#e5e5e5] border-b-[4px] text-[#afafaf] hover:bg-[#f7f7f7]';
+                                        return <button key={label} onClick={() => !isLocked && handleAnswerChange(currentQ.id, val, 'group', opt.key)} className={`btn-duo px-6 py-3 rounded-xl border-2 font-black text-sm uppercase tracking-wider ${btnStyle}`}>{label}</button>
+                                    })}
+                                </div></div>
+                            ))}
+                            {currentQ.type === 'text' && <input type="text" placeholder="Nhập đáp án..." className="w-full p-5 text-xl bg-white border-2 border-[#e5e5e5] border-b-[4px] rounded-2xl text-[#3c3c3c] font-black outline-none focus:border-[#1cb0f6] transition-all" value={userAnswers[currentQ.id] || ''} onChange={(e) => handleAnswerChange(currentQ.id, e.target.value, 'text')} />}
+                        </div>
                     </div>
 
-                    {/* Navigation Desktop */}
-                    <div className="hidden lg:flex justify-between items-center pt-8 mt-8 border-t-2 border-[#e5e5e5]">
-                        <button onClick={handlePrevQuestion} disabled={currentQuestionIndex === 0} className={`btn-duo px-8 py-4 rounded-2xl border-2 border-b-[4px] font-black uppercase tracking-wider text-lg ${currentQuestionIndex === 0 ? 'bg-[#f7f7f7] border-[#e5e5e5] text-[#afafaf] cursor-not-allowed opacity-50' : 'bg-white border-[#e5e5e5] text-[#afafaf] hover:bg-[#f7f7f7]'}`}>TRỞ LẠI</button>
+                    {/* Thanh Điều Hướng Dưới (Chỉ hiện trên PC) */}
+                    <div className="hidden lg:flex shrink-0 justify-between items-center pt-4 mt-2 border-t-2 border-[#e5e5e5]">
+                        <button onClick={handlePrevQuestion} disabled={currentQuestionIndex === 0} className={`btn-duo px-8 py-3 rounded-2xl border-2 border-b-[4px] font-black uppercase tracking-wider text-lg ${currentQuestionIndex === 0 ? 'bg-[#f7f7f7] border-[#e5e5e5] text-[#afafaf] cursor-not-allowed opacity-50' : 'bg-white border-[#e5e5e5] text-[#afafaf] hover:bg-[#f7f7f7]'}`}>TRỞ LẠI</button>
                         {isPracticeMode ? (
-                            <button onClick={() => handleCheckQuestion(currentQ.id)} className={`btn-duo px-10 py-4 rounded-2xl border-2 border-b-[4px] font-black uppercase tracking-wider text-lg text-white ${checkError === currentQ.id ? 'bg-[#ffc800] border-[#e5b400]' : 'bg-[#58cc02] border-[#58a700] hover:bg-[#46a302]'}`}>{checkError === currentQ.id ? 'THỬ LẠI' : 'KIỂM TRA'}</button>
+                            <button onClick={() => handleCheckQuestion(currentQ.id)} className={`btn-duo px-10 py-3 rounded-2xl border-2 border-b-[4px] font-black uppercase tracking-wider text-lg text-white ${checkError === currentQ.id ? 'bg-[#ffc800] border-[#e5b400]' : 'bg-[#58cc02] border-[#58a700] hover:bg-[#46a302]'}`}>{checkError === currentQ.id ? 'THỬ LẠI' : 'KIỂM TRA'}</button>
                         ) : (
-                            <button onClick={handleNextQuestion} className="btn-duo px-10 py-4 rounded-2xl border-2 border-[#1cb0f6] border-b-[4px] bg-[#1cb0f6] hover:bg-[#1899d6] text-white font-black uppercase tracking-wider text-lg">TIẾP THEO</button>
+                            <button onClick={handleNextQuestion} className="btn-duo px-10 py-3 rounded-2xl border-2 border-[#1cb0f6] border-b-[4px] bg-[#1cb0f6] hover:bg-[#1899d6] text-white font-black uppercase tracking-wider text-lg">TIẾP THEO</button>
                         )}
                     </div>
                 </div>
 
-                {/* Cột Phải: Thời Gian & Map (Chỉ hiện trên PC) */}
-                <div className="w-[320px] hidden lg:flex flex-col gap-6 shrink-0">
-                    {!isPracticeMode && (
-                        <div className="bg-white p-6 rounded-3xl border-2 border-[#e5e5e5] border-b-[4px] flex flex-col items-center justify-center relative overflow-hidden">
-                            <div className="text-[#afafaf] font-black uppercase tracking-widest text-xs mb-2 z-10">THỜI GIAN CÒN LẠI</div>
-                            <div className="text-[#ff4b4b] font-black text-[44px] tracking-tight z-10 leading-none">{formatTime(timeLeft)}</div>
-                            <Clock className="absolute -right-4 -bottom-4 text-[#e5e5e5] w-24 h-24 opacity-50" />
-                        </div>
-                    )}
+                {/* CỘT PHẢI: Đồng hồ & Map Câu Hỏi (Ẩn/Hiện trên PC) */}
+                {isSidebarOpen && (
+                    <div className="w-[280px] lg:w-[320px] hidden lg:flex flex-col gap-5 shrink-0 min-h-0">
+                        {/* Đồng hồ */}
+                        {!isPracticeMode && (
+                            <div className="shrink-0 bg-white p-5 rounded-3xl border-2 border-[#e5e5e5] border-b-[4px] flex flex-col items-center justify-center relative overflow-hidden">
+                                <div className="text-[#afafaf] font-black uppercase tracking-widest text-xs mb-1 z-10">THỜI GIAN CÒN LẠI</div>
+                                <div className="text-[#ff4b4b] font-black text-4xl tracking-tight z-10 leading-none">{formatTime(timeLeft)}</div>
+                                <Clock className="absolute -right-3 -bottom-3 text-[#e5e5e5] w-20 h-20 opacity-50" />
+                            </div>
+                        )}
 
-                    <div className="bg-white p-6 rounded-3xl border-2 border-[#e5e5e5] border-b-[4px] flex-1 flex flex-col h-[500px]">
-                        <div className="font-black text-[#3c3c3c] text-lg mb-4 uppercase tracking-wider">MỤC LỤC CÂU HỎI</div>
-                        <div className="flex flex-wrap gap-3 content-start flex-1 overflow-y-auto custom-scroll pr-2">
-                            {questions.map((q, idx) => {
-                                const isDone = checkedQuestions[q.id] || userAnswers[q.id] !== undefined, isCurrent = idx === currentQuestionIndex;
-                                let style = "bg-white border-[#e5e5e5] text-[#afafaf] border-b-[4px] hover:bg-[#f7f7f7]";
-                                if (isCurrent) style = "bg-[#1cb0f6] border-[#1899d6] text-white border-b-[4px]";
-                                else if (isDone) style = "bg-[#ddf4ff] border-[#1cb0f6] text-[#1cb0f6] border-b-[4px]";
-                                return <button key={q.id} onClick={() => setCurrentQuestionIndex(idx)} className={`btn-duo w-12 h-12 rounded-xl border-2 font-black text-[15px] flex items-center justify-center ${style}`}>{idx + 1}</button>
-                            })}
+                        {/* Bản đồ câu hỏi (Cuộn độc lập) */}
+                        <div className="flex-1 flex flex-col min-h-0 bg-white p-5 rounded-3xl border-2 border-[#e5e5e5] border-b-[4px]">
+                            <div className="font-black text-[#3c3c3c] text-lg mb-4 uppercase tracking-wider shrink-0 flex justify-between items-center">
+                                MỤC LỤC CÂU HỎI
+                            </div>
+                            
+                            <div className="flex-1 overflow-y-auto custom-scroll flex flex-wrap gap-2 content-start pr-1 min-h-0">
+                                {questions.map((q, idx) => {
+                                    const isDone = checkedQuestions[q.id] || userAnswers[q.id] !== undefined, isCurrent = idx === currentQuestionIndex;
+                                    let style = "bg-white border-[#e5e5e5] text-[#afafaf] border-b-[4px] hover:bg-[#f7f7f7]";
+                                    if (isCurrent) style = "bg-[#1cb0f6] border-[#1899d6] text-white border-b-[4px]";
+                                    else if (isDone) style = "bg-[#ddf4ff] border-[#1cb0f6] text-[#1cb0f6] border-b-[4px]";
+                                    return <button key={q.id} onClick={() => setCurrentQuestionIndex(idx)} className={`btn-duo w-[46px] h-[46px] rounded-xl border-2 font-black text-sm flex items-center justify-center ${style}`}>{idx + 1}</button>
+                                })}
+                            </div>
+
+                            <button onClick={handleSubmit} className="shrink-0 btn-duo w-full mt-4 py-3.5 rounded-xl border-2 border-[#ea2b2b] border-b-[4px] bg-[#ff4b4b] hover:bg-[#e63939] text-white font-black text-[17px] uppercase tracking-wider">
+                                NỘP BÀI THI
+                            </button>
                         </div>
-                        <button onClick={handleSubmit} className="btn-duo w-full mt-6 py-4 rounded-2xl border-2 border-[#ea2b2b] border-b-[4px] bg-[#ff4b4b] hover:bg-[#e63939] text-white font-black text-lg uppercase tracking-wider">
-                            NỘP BÀI THI
-                        </button>
                     </div>
-                </div>
+                )}
 
-                {/* Mobile Floating Navigation Footer (ĐÃ CẬP NHẬT TỐI ƯU CHO ĐIỆN THOẠI) */}
-                <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-white border-t-2 border-[#e5e5e5] z-50 flex gap-3 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
-                    <button onClick={handlePrevQuestion} disabled={currentQuestionIndex === 0} className="btn-duo w-14 h-14 shrink-0 flex items-center justify-center rounded-2xl border-2 border-[#e5e5e5] border-b-[4px] bg-white text-[#afafaf] font-black disabled:opacity-50"><ChevronLeft size={28} strokeWidth={3}/></button>
+                {/* THANH ĐIỀU HƯỚNG DƯỚI CÙNG CHO MOBILE */}
+                <div className="lg:hidden absolute bottom-0 left-0 right-0 p-3 bg-white border-t-2 border-[#e5e5e5] z-50 flex gap-2 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
+                    <button onClick={handlePrevQuestion} disabled={currentQuestionIndex === 0} className="btn-duo w-12 h-12 shrink-0 flex items-center justify-center rounded-xl border-2 border-[#e5e5e5] border-b-[4px] bg-white text-[#afafaf] font-black disabled:opacity-50"><ChevronLeft size={24} strokeWidth={3}/></button>
                     
-                    {/* Ở giữa: Nút KIỂM TRA (nếu Luyện tập) hoặc ĐỒNG HỒ ĐẾM NGƯỢC (nếu Thi Thử) */}
                     {isPracticeMode ? (
-                        <button onClick={() => handleCheckQuestion(currentQ.id)} className={`btn-duo flex-1 rounded-2xl border-2 border-b-[4px] text-white font-black text-[16px] uppercase tracking-wider ${checkError === currentQ.id ? 'bg-[#ffc800] border-[#e5b400]' : 'bg-[#58cc02] border-[#58a700]'}`}>{checkError === currentQ.id ? 'THỬ LẠI' : 'KIỂM TRA'}</button>
+                        <button onClick={() => handleCheckQuestion(currentQ.id)} className={`btn-duo flex-1 rounded-xl border-2 border-b-[4px] text-white font-black text-[15px] uppercase tracking-wider ${checkError === currentQ.id ? 'bg-[#ffc800] border-[#e5b400]' : 'bg-[#58cc02] border-[#58a700]'}`}>{checkError === currentQ.id ? 'THỬ LẠI' : 'KIỂM TRA'}</button>
                     ) : (
-                        <div className="flex-1 rounded-2xl border-2 border-[#e5e5e5] border-b-[4px] bg-white flex flex-col items-center justify-center pt-1 shadow-inner">
-                            <span className="text-[9px] font-black text-[#afafaf] uppercase tracking-widest leading-none mb-1">Thời Gian</span>
-                            <span className="text-xl font-black text-[#ff4b4b] leading-none">{formatTime(timeLeft)}</span>
+                        <div className="flex-1 rounded-xl border-2 border-[#e5e5e5] border-b-[4px] bg-white flex flex-col items-center justify-center py-1 shadow-inner">
+                            <span className="text-[9px] font-black text-[#afafaf] uppercase tracking-widest leading-none mb-0.5">Thời Gian</span>
+                            <span className="text-[17px] font-black text-[#ff4b4b] leading-none">{formatTime(timeLeft)}</span>
                         </div>
                     )}
 
-                    <button onClick={currentQuestionIndex < questions.length - 1 ? handleNextQuestion : handleSubmit} className={`btn-duo w-14 h-14 shrink-0 flex items-center justify-center rounded-2xl border-2 border-b-[4px] font-black text-white ${currentQuestionIndex < questions.length - 1 ? 'bg-[#1cb0f6] border-[#1899d6]' : 'bg-[#ff4b4b] border-[#ea2b2b]'}`}>{currentQuestionIndex < questions.length - 1 ? <ChevronRight size={28} strokeWidth={3}/> : <Check size={28} strokeWidth={3}/>}</button>
+                    <button onClick={currentQuestionIndex < questions.length - 1 ? handleNextQuestion : handleSubmit} className={`btn-duo w-12 h-12 shrink-0 flex items-center justify-center rounded-xl border-2 border-b-[4px] font-black text-white ${currentQuestionIndex < questions.length - 1 ? 'bg-[#1cb0f6] border-[#1899d6]' : 'bg-[#ff4b4b] border-[#ea2b2b]'}`}>{currentQuestionIndex < questions.length - 1 ? <ChevronRight size={24} strokeWidth={3}/> : <Check size={24} strokeWidth={3}/>}</button>
                 </div>
             </div>
         )}
 
-        {/* --- MÀN HÌNH KẾT QUẢ ĐÃ NÂNG CẤP VIBE DUOLINGO --- */}
+        {/* --- MÀN HÌNH KẾT QUẢ --- */}
         {screen === 'result' && scoreData && (
             <div className="w-full max-w-4xl p-4 sm:p-6 pb-24 mx-auto animate-fade-in-up">
                 
