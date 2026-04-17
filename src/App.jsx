@@ -317,8 +317,8 @@ export default function App() {
     const doc = parser.parseFromString(htmlString, 'text/html');
     const paragraphs = Array.from(doc.body.querySelectorAll('p'));
     let parsedQuestions = [], currentQuestion = null; 
-    const strongQuestionRegex = /^Câu\s+\d+[:\.]/i; const weakQuestionRegex = /^\d+[:\.]/i;       
-    const singleOptionRegex = /^([A-D])[\.\)\/]\s*(.+)/; const groupOptionRegex = /^([a-d])[\.\)\/]\s*(.+)/;  
+    const strongQuestionRegex = /^Câu\s+\d+[:\.]/i; 
+    const weakQuestionRegex = /^\d+[:\.]/i;       
     const shortAnswerRegex = /^(Đáp án|HD|Lời giải|Answer)[:\.]\s*(.+)/i;
     const groupKeywords = /Đúng hay Sai|đúng sai|nhận định|mệnh đề/i;
 
@@ -327,40 +327,58 @@ export default function App() {
       const htmlContent = p.innerHTML;
       if (!text && !p.querySelector('img')) return;
 
-      const uTag = p.querySelector('u'); const bTag = p.querySelector('b') || p.querySelector('strong'); const markTag = p.querySelector('mark');
+      const uTag = p.querySelector('u'); 
+      const bTag = p.querySelector('b') || p.querySelector('strong'); 
+      const markTag = p.querySelector('mark');
       let isMarkedCorrect = !!(uTag || markTag || (bTag && bTag.textContent.trim().length > 3));
-      const isStrongStart = text.match(strongQuestionRegex); const isWeakStart = text.match(weakQuestionRegex);
+      
+      const isStrongStart = text.match(strongQuestionRegex); 
+      const isWeakStart = text.match(weakQuestionRegex);
+      
+      // Hợp nhất Regex: Nhận diện chung cho cả ABCD và abcd
+      const optMatch = text.match(/^([a-dA-D])[\.\)\/]\s*(.*)/);
+      
       let isNewQuestion = false;
-
-      if (isStrongStart && !text.match(singleOptionRegex) && !text.match(groupOptionRegex)) isNewQuestion = true; 
-      else if (isWeakStart && !text.match(singleOptionRegex) && !text.match(groupOptionRegex)) {
-          if (currentQuestion && (!currentQuestion.options || currentQuestion.options.length === 0)) isNewQuestion = false; else isNewQuestion = true;
+      if (isStrongStart && !optMatch) isNewQuestion = true; 
+      else if (isWeakStart && !optMatch) {
+          if (currentQuestion && (!currentQuestion.options || currentQuestion.options.length === 0)) isNewQuestion = false; 
+          else isNewQuestion = true;
       }
 
       if (isNewQuestion) {
         if (currentQuestion) parsedQuestions.push(currentQuestion);
         currentQuestion = { id: parsedQuestions.length + 1, question: text || htmlContent, type: 'single', options: [], correctAnswer: "" };
-        if (groupKeywords.test(text)) currentQuestion.type = 'group';
+        if (groupKeywords.test(text)) currentQuestion.type = 'group'; // Tạm đoán là group nếu có từ khóa
         return; 
       }
       if (!currentQuestion) return;
+      
       const shortMatch = text.match(shortAnswerRegex);
       if (shortMatch) { currentQuestion.type = 'text'; currentQuestion.correctAnswer = shortMatch[2].trim(); currentQuestion.options = []; return; }
-      const singleMatch = text.match(singleOptionRegex); 
-      const groupMatch = text.match(groupOptionRegex);
       
-      // 1. NẾU LÀ A, B, C, D VIẾT HOA -> ƯU TIÊN ÉP THÀNH TRẮC NGHIỆM THƯỜNG
-      if (singleMatch) { 
-          currentQuestion.type = 'single'; // Bắt buộc ép về trắc nghiệm thường, hóa giải từ khóa nhiễu
-          currentQuestion.options.push({ key: singleMatch[1].toUpperCase(), text: singleMatch[2], isCorrect: isMarkedCorrect }); 
-          return; 
-      }
-      
-      // 2. NẾU LÀ a, b, c, d VIẾT THƯỜNG -> LÀ TRẮC NGHIỆM ĐÚNG/SAI
-      if (groupMatch) { 
-          currentQuestion.type = 'group'; 
-          currentQuestion.options.push({ key: groupMatch[1].toLowerCase(), text: groupMatch[2], isCorrect: isMarkedCorrect }); 
-          return; 
+      if (optMatch) {
+          const letter = optMatch[1];
+          const content = optMatch[2];
+          const isUpperCase = letter === letter.toUpperCase();
+          
+          // QUAN TRỌNG NHẤT: Chữ cái Option ĐẦU TIÊN (Hoa hay thường) sẽ chốt luôn loại câu hỏi, vô hiệu hóa mọi từ khóa gây nhiễu!
+          if (currentQuestion.options.length === 0) {
+              currentQuestion.type = isUpperCase ? 'single' : 'group';
+          }
+          
+          // Ép key theo chuẩn form
+          const finalKey = currentQuestion.type === 'group' ? letter.toLowerCase() : letter.toUpperCase();
+          
+          // Giữ lại định dạng HTML/Ảnh trong đáp án
+          let cleanHtml = htmlContent;
+          if(cleanHtml.startsWith(letter)) {
+              cleanHtml = cleanHtml.replace(/^([a-dA-D])[\.\)\/]\s*/i, '');
+          } else {
+              cleanHtml = content; 
+          }
+          
+          currentQuestion.options.push({ key: finalKey, text: cleanHtml, isCorrect: isMarkedCorrect }); 
+          return;
       }
       
       if (!currentQuestion.options || currentQuestion.options.length === 0) { 
@@ -368,6 +386,7 @@ export default function App() {
           if (groupKeywords.test(text)) currentQuestion.type = 'group'; 
       }
     });
+    
     if (currentQuestion) parsedQuestions.push(currentQuestion);
     if (parsedQuestions.length > 0) { setQuestions(parsedQuestions); setScreen('edit'); } else { alert("Lỗi: Không tìm thấy câu hỏi nào!"); }
   };
