@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 // --- CẤU HÌNH GOOGLE FIREBASE ---
-// Nhớ đổi chữ PROJECT_ID thành mã dự án của bạn nhé! (Tuyệt đối không xóa chữ /exams ở cuối)
+// DÁN LINK FIREBASE CỦA BẠN VÀO DÒNG DƯỚI ĐÂY (Nhớ có chữ /exams ở cuối)
 const FIREBASE_URL = "https://azotahung-default-rtdb.asia-southeast1.firebasedatabase.app/exams"; 
 
 // --- SOUND ASSETS ---
@@ -312,15 +312,18 @@ export default function App() {
     reader.readAsArrayBuffer(file);
   };
 
+  // --- THUẬT TOÁN ĐỌC FILE WORD MỚI ---
   const parseHtmlToQuestions = (htmlString) => {
     const parser = new DOMParser(); 
     const doc = parser.parseFromString(htmlString, 'text/html');
     const paragraphs = Array.from(doc.body.querySelectorAll('p'));
     let parsedQuestions = [], currentQuestion = null; 
+    
     const strongQuestionRegex = /^Câu\s+\d+[:\.]/i; 
     const weakQuestionRegex = /^\d+[:\.]/i;       
     const shortAnswerRegex = /^(Đáp án|HD|Lời giải|Answer)[:\.]\s*(.+)/i;
-    const groupKeywords = /Đúng hay Sai|đúng sai|nhận định|mệnh đề/i;
+    // Bỏ qua chữ thường a.b.c.d, chỉ xét từ khóa đặc biệt
+    const groupKeywords = /đúng hay sai|các nhận định|các mệnh đề/i;
 
     paragraphs.forEach((p) => {
       let text = p.textContent.trim(); 
@@ -331,13 +334,13 @@ export default function App() {
       const bTag = p.querySelector('b') || p.querySelector('strong'); 
       const markTag = p.querySelector('mark');
       let isMarkedCorrect = !!(uTag || markTag || (bTag && bTag.textContent.trim().length > 3));
-      
+
       const isStrongStart = text.match(strongQuestionRegex); 
       const isWeakStart = text.match(weakQuestionRegex);
       
-      // Hợp nhất Regex: Nhận diện chung cho cả ABCD và abcd
+      // Bắt cả A,B,C,D và a,b,c,d
       const optMatch = text.match(/^([a-dA-D])[\.\)\/]\s*(.*)/);
-      
+
       let isNewQuestion = false;
       if (isStrongStart && !optMatch) isNewQuestion = true; 
       else if (isWeakStart && !optMatch) {
@@ -347,37 +350,30 @@ export default function App() {
 
       if (isNewQuestion) {
         if (currentQuestion) parsedQuestions.push(currentQuestion);
-        currentQuestion = { id: parsedQuestions.length + 1, question: text || htmlContent, type: 'single', options: [], correctAnswer: "" };
-        if (groupKeywords.test(text)) currentQuestion.type = 'group'; // Tạm đoán là group nếu có từ khóa
+        
+        let qType = 'single'; // Mặc định tất cả là Trắc nghiệm 1 đáp án
+        if (groupKeywords.test(text)) qType = 'group'; // Chỉ đổi khi có từ khóa rõ ràng
+
+        currentQuestion = { id: parsedQuestions.length + 1, question: text || htmlContent, type: qType, options: [], correctAnswer: "" };
         return; 
       }
+      
       if (!currentQuestion) return;
       
       const shortMatch = text.match(shortAnswerRegex);
       if (shortMatch) { currentQuestion.type = 'text'; currentQuestion.correctAnswer = shortMatch[2].trim(); currentQuestion.options = []; return; }
       
       if (optMatch) {
-          const letter = optMatch[1];
-          const content = optMatch[2];
-          const isUpperCase = letter === letter.toUpperCase();
+          // Bất kể giáo viên gõ a. hay A., đều ép thành chữ HOA (A, B, C, D)
+          const letter = optMatch[1].toUpperCase(); 
           
-          // QUAN TRỌNG NHẤT: Chữ cái Option ĐẦU TIÊN (Hoa hay thường) sẽ chốt luôn loại câu hỏi, vô hiệu hóa mọi từ khóa gây nhiễu!
-          if (currentQuestion.options.length === 0) {
-              currentQuestion.type = isUpperCase ? 'single' : 'group';
-          }
-          
-          // Ép key theo chuẩn form
-          const finalKey = currentQuestion.type === 'group' ? letter.toLowerCase() : letter.toUpperCase();
-          
-          // Giữ lại định dạng HTML/Ảnh trong đáp án
           let cleanHtml = htmlContent;
-          if(cleanHtml.startsWith(letter)) {
+          if(cleanHtml.match(/^([a-dA-D])[\.\)\/]\s*/i)) {
               cleanHtml = cleanHtml.replace(/^([a-dA-D])[\.\)\/]\s*/i, '');
           } else {
-              cleanHtml = content; 
+              cleanHtml = optMatch[2];
           }
-          
-          currentQuestion.options.push({ key: finalKey, text: cleanHtml, isCorrect: isMarkedCorrect }); 
+          currentQuestion.options.push({ key: letter, text: cleanHtml, isCorrect: isMarkedCorrect }); 
           return;
       }
       
@@ -393,7 +389,13 @@ export default function App() {
 
   const handleCreateDemo = () => { setExamName("Đề Demo"); setQuestions(DEMO_EXAM); setScreen('edit'); };
   const handleTextAnswerEdit = (qIndex, newText) => { const newQuestions = [...questions]; newQuestions[qIndex].correctAnswer = newText; setQuestions(newQuestions); };
-  const toggleCorrectAnswer = (qIndex, optKey) => { const newQuestions = [...questions]; const q = newQuestions[qIndex]; if (q.type === 'single') q.options?.forEach(opt => opt.isCorrect = (opt.key === optKey)); else if (q.type === 'group') { const opt = q.options?.find(o => o.key === optKey); if (opt) opt.isCorrect = !opt.isCorrect; } setQuestions(newQuestions); };
+  
+  const toggleCorrectAnswer = (qIndex, optKey) => { 
+      const newQuestions = [...questions]; const q = newQuestions[qIndex]; 
+      if (q.type === 'single') q.options?.forEach(opt => opt.isCorrect = (opt.key === optKey)); 
+      else if (q.type === 'group') { const opt = q.options?.find(o => o.key === optKey); if (opt) opt.isCorrect = !opt.isCorrect; } 
+      setQuestions(newQuestions); 
+  };
 
   useEffect(() => {
     if (screen === 'exam' && timeLeft > 0 && !isPracticeMode) { timerRef.current = setInterval(() => { setTimeLeft((prev) => { if (prev <= 1) { handleSubmit(); return 0; } return prev - 1; }); }, 1000); }
@@ -465,7 +467,6 @@ export default function App() {
   const containerClass = isExamMode ? "min-h-screen font-sans text-gray-100 bg-[#09090b] selection:bg-cyan-500 selection:text-white" : "min-h-screen font-sans text-gray-800 bg-[#f3f4f6]";
   const headerClass = isExamMode ? "fixed top-0 left-0 right-0 z-50 h-16 px-4 flex justify-between items-center backdrop-blur-xl bg-black/40 border-b border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.5)]" : "fixed top-0 left-0 right-0 z-50 h-16 px-4 flex justify-between items-center bg-white border-b border-gray-200 shadow-sm";
 
-  // Biến bảo vệ cho giao diện làm bài
   const currentQ = questions[currentQuestionIndex];
 
   return (
@@ -530,11 +531,26 @@ export default function App() {
                <div className="space-y-6">
                  {questions.map((q, idx) => (
                    <div key={q.id} className="border rounded-xl p-4 hover:border-indigo-300 transition-colors">
-                      <div className="font-bold text-gray-800 mb-3 flex gap-2">
-                         <span className="text-indigo-600">Câu {idx + 1}:</span>
-                         <span dangerouslySetInnerHTML={{ __html: q.question?.replace(/^(Câu)?\s*\d+[\.:]\s*/i, '') || '' }} />
+                      {/* --- THÊM NÚT ĐỔI DẠNG CÂU HỎI Ở ĐÂY --- */}
+                      <div className="flex justify-between items-start mb-3">
+                          <div className="font-bold text-gray-800 flex gap-2">
+                             <span className="text-indigo-600 shrink-0">Câu {idx + 1}:</span>
+                             <span dangerouslySetInnerHTML={{ __html: q.question?.replace(/^(Câu)?\s*\d+[\.:]\s*/i, '') || '' }} />
+                          </div>
+                          <button
+                              onClick={() => {
+                                  const newQs = [...questions];
+                                  newQs[idx].type = newQs[idx].type === 'single' ? 'group' : 'single';
+                                  setQuestions(newQs);
+                              }}
+                              className="ml-4 text-[10px] uppercase tracking-wider px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-200 rounded font-bold shrink-0 transition-colors shadow-sm"
+                              title="Click để đổi qua lại giữa Trắc nghiệm thường và Đúng/Sai"
+                          >
+                              {q.type === 'single' ? 'Đổi sang Đúng/Sai' : 'Đổi sang Chọn 1'}
+                          </button>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm mt-3">
                         {q.options?.map(opt => (
                             <div key={opt.key} onClick={() => toggleCorrectAnswer(idx, opt.key)} className={`p-2 rounded border cursor-pointer flex items-center gap-2 ${opt.isCorrect ? 'bg-green-50 border-green-500 text-green-700 font-bold' : 'hover:bg-gray-50'}`}>
                                 <span className={`w-5 h-5 flex items-center justify-center rounded border text-xs ${opt.isCorrect ? 'bg-green-500 text-white border-green-500' : 'bg-white'}`}>{opt.key}</span>{opt.text}
