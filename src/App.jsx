@@ -17,8 +17,8 @@ const FIREBASE_URL = "https://azotahung-default-rtdb.asia-southeast1.firebasedat
 // --- SOUND ASSETS ---
 const SOUNDS = {
     click: "https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3",
-    success: "https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=success-1-6297.mp3",
-    error: "https://cdn.pixabay.com/download/audio/2022/03/15/audio_78bd1fbafb.mp3?filename=error-126627.mp3",
+    success: "",
+    error: "",
     finish: "https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3",
 };
 
