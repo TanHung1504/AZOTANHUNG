@@ -346,11 +346,27 @@ export default function App() {
       if (!currentQuestion) return;
       const shortMatch = text.match(shortAnswerRegex);
       if (shortMatch) { currentQuestion.type = 'text'; currentQuestion.correctAnswer = shortMatch[2].trim(); currentQuestion.options = []; return; }
-      const singleMatch = text.match(singleOptionRegex); const groupMatch = text.match(groupOptionRegex);
-      if (currentQuestion.type === 'group' && (singleMatch || groupMatch)) { const match = singleMatch || groupMatch; currentQuestion.options.push({ key: match[1].toLowerCase(), text: match[2], isCorrect: isMarkedCorrect }); return; }
-      if (groupMatch) { currentQuestion.type = 'group'; currentQuestion.options.push({ key: groupMatch[1].toLowerCase(), text: groupMatch[2], isCorrect: isMarkedCorrect }); return; }
-      if (singleMatch) { currentQuestion.type = 'single'; currentQuestion.options.push({ key: singleMatch[1].toUpperCase(), text: singleMatch[2], isCorrect: isMarkedCorrect }); return; }
-      if (!currentQuestion.options || currentQuestion.options.length === 0) { currentQuestion.question += `<br/>${htmlContent}`; if (groupKeywords.test(text)) currentQuestion.type = 'group'; }
+      const singleMatch = text.match(singleOptionRegex); 
+      const groupMatch = text.match(groupOptionRegex);
+      
+      // 1. NẾU LÀ A, B, C, D VIẾT HOA -> ƯU TIÊN ÉP THÀNH TRẮC NGHIỆM THƯỜNG
+      if (singleMatch) { 
+          currentQuestion.type = 'single'; // Bắt buộc ép về trắc nghiệm thường, hóa giải từ khóa nhiễu
+          currentQuestion.options.push({ key: singleMatch[1].toUpperCase(), text: singleMatch[2], isCorrect: isMarkedCorrect }); 
+          return; 
+      }
+      
+      // 2. NẾU LÀ a, b, c, d VIẾT THƯỜNG -> LÀ TRẮC NGHIỆM ĐÚNG/SAI
+      if (groupMatch) { 
+          currentQuestion.type = 'group'; 
+          currentQuestion.options.push({ key: groupMatch[1].toLowerCase(), text: groupMatch[2], isCorrect: isMarkedCorrect }); 
+          return; 
+      }
+      
+      if (!currentQuestion.options || currentQuestion.options.length === 0) { 
+          currentQuestion.question += `<br/>${htmlContent}`; 
+          if (groupKeywords.test(text)) currentQuestion.type = 'group'; 
+      }
     });
     if (currentQuestion) parsedQuestions.push(currentQuestion);
     if (parsedQuestions.length > 0) { setQuestions(parsedQuestions); setScreen('edit'); } else { alert("Lỗi: Không tìm thấy câu hỏi nào!"); }
