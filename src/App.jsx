@@ -12,7 +12,7 @@ import {
 
 // --- CẤU HÌNH GOOGLE FIREBASE ---
 // Nhớ đổi chữ PROJECT_ID thành mã dự án của bạn nhé! (Tuyệt đối không xóa chữ /exams ở cuối)
-const FIREBASE_URL = "https://azotanhung.vercel.app/?id=-OqPODtUfDKtudZ2zZEB&mode=practice/exams"; 
+const FIREBASE_URL = "https://azotahung-default-rtdb.asia-southeast1.firebasedatabase.app/exams"; 
 
 // --- SOUND ASSETS ---
 const SOUNDS = {
